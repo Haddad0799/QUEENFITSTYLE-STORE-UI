@@ -113,18 +113,8 @@ npm run build
 npm run start
 ```
 
-## Backend (Visão Geral)
+### Arquitetura do Backend
 
-O backend é uma aplicação **Java/Spring Boot** modular com os seguintes módulos:
+O backend segue **Clean Architecture** com módulos Maven independentes (attribute, product, catalog, inventory, pricing, storage, shared).
 
-| Módulo | Responsabilidade |
-|---|---|
-| `catalog` | View materializada para a loja — produtos, SKUs, categorias, preços e estoque agregados. Dispara webhook de revalidação para o Next.js |
-| `product` | CRUD de produtos e SKUs (backoffice) |
-| `attribute` | Categorias, cores e tamanhos |
-| `pricing` | Preços dos SKUs |
-| `inventory` | Estoque e movimentações |
-| `storage` | Upload de imagens (MinIO/S3) |
-| `shared` | Configurações comuns, migrations Flyway, exceções base |
-
-O módulo `catalog` escuta eventos de domínio (publicação, atualização, despublicação de produtos) via `CatalogEventListener` e sincroniza uma view desnormalizada. Após a sincronização, o `NextJsRevalidationAdapter` chama `POST /api/revalidate` no Next.js para invalidar o cache.
+Para detalhes sobre a arquitetura, módulos e endpoints, consulte o [repositório do backend](https://github.com/Haddad0799/QUEENFITSTYLE-ERP-STORE-BACKEND).
