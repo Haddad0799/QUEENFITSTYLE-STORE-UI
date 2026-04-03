@@ -1,120 +1,177 @@
-# QueenFitStyle Store - Frontend
+# Queenfitstyle Store
 
-Frontend do e-commerce **QueenFitStyle**, uma loja virtual de roupas fitness femininas. Construído com **Next.js 15** (App Router) priorizando **SEO**, performance e experiência do consumidor.
+Loja virtual do ecossistema Queenfitstyle, desenvolvida para exibir produtos de forma rápida, indexável e sempre atualizada.
 
-## Arquitetura
+Construída com Next.js 15, a aplicação prioriza SEO, performance e sincronização em tempo real com o backend.
 
-Este frontend consome a API REST do backend **Java/Spring Boot** (módulo `catalog`), que disponibiliza os dados de produtos, SKUs e categorias. A comunicação segue o fluxo:
+---
 
-```
-┌─────────────────────┐       REST        ┌──────────────────────────┐
-│   Next.js (SSR)     │ ◄──────────────── │  Spring Boot (Catalog)   │
-│   /store/products   │                   │  CatalogController       │
-│   /store/categories │                   │  CatalogQueryService     │
-└─────────┬───────────┘                   └──────────┬───────────────┘
-          │                                          │
-          │  POST /api/revalidate                    │  Webhook (on publish/update)
-          │ ◄────────────────────────────────────────┘
-          │  { tags: ["catalog-products", ...] }
-          │
-     revalidateTag() → cache invalidado instantaneamente
-```
+## Problema
 
-### Estratégia de Cache (ISR + On-Demand Revalidation)
+Em e-commerces tradicionais, a vitrine apresenta desafios como:
 
-Cada `fetch` no servidor combina **duas estratégias**:
+- Páginas lentas devido a consultas complexas no backend
+- Conteúdo desatualizado após mudanças no catálogo
+- Dependência de rebuild completo para refletir alterações
+- Baixa indexação em buscadores quando mal configurado
 
-| Estratégia | Finalidade |
-|---|---|
-| `tags` (on-demand) | O backend Java chama `POST /api/revalidate` com as tags afetadas → cache invalidado **instantaneamente** |
-| `revalidate: 300` (fallback) | Rede de segurança — caso o webhook falhe, o cache expira sozinho em no máximo 5 minutos |
+---
 
-**Tags utilizadas:**
+## Solução
 
-| Tag | Onde é usada |
-|---|---|
-| `catalog-products` | Listagem de produtos (`getProducts`) |
-| `catalog-product-{slug}` | Detalhe do produto e SKUs (`getProductBySlug`, `getSkuDetail`) |
-| `catalog-categories` | Listagem de categorias (`getCategories`) |
+A loja foi projetada para:
 
-## Tecnologias
+- Renderizar páginas no servidor (SSR) garantindo indexação por buscadores
+- Utilizar cache inteligente (ISR) para alta performance
+- Receber atualizações do backend automaticamente via webhook
+- Revalidar apenas os conteúdos afetados, sem rebuild completo
 
-- **Next.js 15** — App Router, Server Components, SSR/ISR
-- **React 19** — Suspense, Server/Client Components
-- **TypeScript 5.7**
-- **Tailwind CSS 4** — Estilização utility-first
-- **Radix UI** — Componentes headless acessíveis (Dialog, Accordion, Select, Tabs, etc.)
-- **Lucide React** — Ícones
-- **Vercel Analytics** — Métricas de performance
+---
+
+## Resultado
+
+- Páginas rápidas e otimizadas para SEO
+- Atualização quase em tempo real após mudanças no ERP
+- Redução de carga no backend
+- Melhor experiência para o usuário final
+
+---
+
+## Arquitetura (Visão Geral)
+
+Fluxo de dados:
+
+1. O frontend busca dados do backend (Spring Boot - módulo catalog)
+2. As páginas são renderizadas no servidor (SSR)
+3. O conteúdo é armazenado em cache (ISR)
+4. Quando um produto é alterado:
+   - O backend envia um webhook
+   - O frontend invalida o cache via tags
+   - Apenas as páginas afetadas são atualizadas
+
+---
+
+## Integração com Backend
+
+Este frontend consome a API REST do módulo de catálogo.
+
+Responsabilidades do backend:
+
+- Fornecer dados de produtos, SKUs e categorias
+- Publicar eventos após alterações
+- Notificar o frontend para revalidação de cache
+
+---
+
+## Estratégia de Cache
+
+A aplicação combina duas estratégias:
+
+### Revalidação sob demanda (principal)
+
+- O backend chama o endpoint `/api/revalidate`
+- O cache é invalidado imediatamente com base em tags
+
+Tags utilizadas:
+
+- catalog-products (listagem)
+- catalog-product-{slug} (detalhe)
+- catalog-categories (categorias)
+
+### Revalidação automática (fallback)
+
+- Tempo de expiração: 300 segundos
+- Garante consistência mesmo em falhas de webhook
+
+---
 
 ## Estrutura do Projeto
 
-```
 app/
-├── layout.tsx              # Layout raiz (Header, Footer, fontes, meta SEO global)
-├── page.tsx                # Home (Hero, Produtos em destaque, Categorias, Newsletter)
+├── layout.tsx
+├── page.tsx
 ├── products/
-│   ├── page.tsx            # Listagem com filtros (categoria, cor, tamanho, preço)
+│   ├── page.tsx
 │   └── [slug]/
-│       ├── page.tsx        # Detalhe do produto (SSR + generateMetadata para SEO)
-│       ├── product-detail-client.tsx  # Interações client-side (cor, tamanho, galeria)
-│       └── not-found.tsx   # 404 customizado
+│       ├── page.tsx
+│       ├── product-detail-client.tsx
+│       └── not-found.tsx
 ├── api/
-│   ├── categories/route.ts # Proxy de categorias
-│   └── revalidate/route.ts # Webhook de revalidação on-demand
+│   ├── categories/
+│   └── revalidate/
 components/
-├── home/                   # Hero banner, produtos em destaque, grid de categorias
-├── layout/                 # Header e Footer
-├── product/                # Cards, filtros, galeria de imagens, seletores
-└── ui/                     # Componentes base (shadcn/ui + Radix)
+├── home/
+├── layout/
+├── product/
+└── ui/
 lib/
-├── api.ts                  # Funções de fetch (getProducts, getProductBySlug, etc.)
-├── types.ts                # Interfaces TypeScript (Product, SKU, Category, Cart)
-└── utils.ts                # Utilitários (cn, etc.)
-```
+├── api.ts
+├── types.ts
+└── utils.ts
+
+---
 
 ## SEO
 
-- **`generateMetadata`** dinâmico por produto (título, descrição, Open Graph com imagem)
-- **Meta tags globais** no layout raiz (keywords, Open Graph, locale `pt_BR`)
-- **SSR** — todo conteúdo é renderizado no servidor, indexável por crawlers
-- **Semântica HTML** — `lang="pt-BR"`, fontes otimizadas (Inter + Playfair Display)
-- **Viewport** configurado para mobile-first
+- Renderização server-side (SSR)
+- generateMetadata dinâmico por produto
+- Open Graph configurado (imagem, título, descrição)
+- Estrutura semântica HTML
+- Suporte a locale pt-BR
+- Otimização mobile-first
+
+---
+
+## Tecnologias
+
+- Next.js 15 (App Router, SSR, ISR)
+- React 19
+- TypeScript
+- Tailwind CSS
+- Radix UI
+- Lucide Icons
+
+---
 
 ## Configuração
 
-### Variáveis de Ambiente
+### Variáveis de ambiente
 
-Crie um arquivo `.env` na raiz:
+Criar arquivo `.env`:
 
-```env
-# URL da API backend (Java/Spring Boot)
 NEXT_PUBLIC_API_URL=http://localhost:8080
-
-# Secret compartilhado com o backend para revalidação on-demand
 REVALIDATE_SECRET=seu-secret-aqui
-```
 
-> O `REVALIDATE_SECRET` deve ser **idêntico** ao configurado no backend Java (`NextJsRevalidationAdapter`).
+O segredo deve ser o mesmo configurado no backend.
 
-### Instalação e Execução
+---
 
-```bash
-# Instalar dependências
+## Execução
+
+Instalar dependências:
+
 npm install
 
-# Desenvolvimento
+Rodar em desenvolvimento:
+
 npm run dev
 
-# Build de produção
+Build de produção:
+
 npm run build
 
-# Iniciar produção
+Iniciar produção:
+
 npm run start
-```
 
-### Arquitetura do Backend
+---
 
-O backend segue **Clean Architecture** com módulos Maven independentes (attribute, product, catalog, inventory, pricing, storage, shared).
+## Integração com o Ecossistema
 
-Para detalhes sobre a arquitetura, módulos e endpoints, consulte o [repositório do backend](https://github.com/Haddad0799/QUEENFITSTYLE-ERP-STORE-BACKEND).
+Este projeto faz parte de um sistema completo de e-commerce:
+
+- Backend ERP: gerenciamento de catálogo, estoque e preços
+- Painel administrativo: operação interna
+- Loja virtual: vitrine pública (este projeto)
+
+Para detalhes da arquitetura backend, consulte o repositório principal.
