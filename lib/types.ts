@@ -25,6 +25,9 @@ export interface ProductSku {
   sellingPrice: number
   availableStock: number
   inStock: boolean
+  width: number
+  height: number
+  length: number
 }
 
 export interface ProductColor {
