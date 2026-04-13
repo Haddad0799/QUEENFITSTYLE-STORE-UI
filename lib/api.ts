@@ -1,6 +1,47 @@
-import type { ProductListResponse, ProductDetail, SkuDetail, ProductFilters, Category } from './types'
+import type {
+  ProductListItem,
+  ProductListResponse,
+  ProductDetail,
+  SkuDetail,
+  ProductFilters,
+  Category,
+  CategoryTree,
+} from './types'
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
+const CATEGORY_ENDPOINTS = [`${API_BASE_URL}/erp/categories`, `${API_BASE_URL}/store/categories`]
+
+async function fetchCategoryResponse(tree = false): Promise<Response> {
+  const suffix = tree ? '/tree' : ''
+  let lastResponse: Response | null = null
+  let lastError: unknown = null
+
+  for (const endpoint of CATEGORY_ENDPOINTS) {
+    try {
+      const response = await fetch(`${endpoint}${suffix}`, {
+        next: { tags: ['catalog-categories'], revalidate: 300 }
+      })
+
+      if (response.ok) {
+        return response
+      }
+
+      lastResponse = response
+
+      if (response.status !== 404) {
+        break
+      }
+    } catch (error) {
+      lastError = error
+    }
+  }
+
+  if (lastResponse) {
+    return lastResponse
+  }
+
+  throw lastError instanceof Error ? lastError : new Error('Falha ao carregar categorias')
+}
 
 // Função auxiliar para construir query params
 function buildQueryParams(filters: ProductFilters): string {
@@ -35,6 +76,47 @@ export async function getProducts(filters: ProductFilters = {}): Promise<Product
   return response.json()
 }
 
+export async function getProductsByCategories(
+  categoryValues: string[],
+  filters: ProductFilters = {}
+): Promise<ProductListResponse> {
+  const uniqueCategories = [...new Set(categoryValues.filter(Boolean))]
+  const mergedProducts = new Map<string, ProductListItem>()
+  const requestedPage = filters.page ?? 0
+  const requestedPageSize = filters.pageSize ?? 12
+
+  for (const category of uniqueCategories) {
+    let page = 0
+    let totalPages = 1
+
+    do {
+      const response = await getProducts({
+        ...filters,
+        category,
+        page,
+        pageSize: 100,
+      })
+
+      for (const product of response.content) {
+        mergedProducts.set(product.slug, product)
+      }
+
+      totalPages = response.totalPages
+      page += 1
+    } while (page < totalPages)
+  }
+
+  const content = Array.from(mergedProducts.values())
+  const totalPages = content.length === 0 ? 0 : Math.ceil(content.length / requestedPageSize)
+  const start = requestedPage * requestedPageSize
+
+  return {
+    content: content.slice(start, start + requestedPageSize),
+    totalPages,
+    number: requestedPage,
+  }
+}
+
 // Obter detalhe de um produto
 export async function getProductBySlug(slug: string): Promise<ProductDetail> {
   const url = `${API_BASE_URL}/store/products/${slug}`
@@ -67,14 +149,21 @@ export async function getSkuDetail(slug: string, skuCode: string): Promise<SkuDe
 
 // Listar categorias
 export async function getCategories(): Promise<Category[]> {
-  const url = `${API_BASE_URL}/store/categories`
-
-  const response = await fetch(url, {
-    next: { tags: ['catalog-categories'], revalidate: 300 }
-  })
+  const response = await fetchCategoryResponse()
 
   if (!response.ok) {
     throw new Error('Falha ao carregar categorias')
+  }
+
+  return response.json()
+}
+
+// Listar árvore de categorias
+export async function getCategoryTree(): Promise<CategoryTree[]> {
+  const response = await fetchCategoryResponse(true)
+
+  if (!response.ok) {
+    throw new Error('Falha ao carregar árvore de categorias')
   }
 
   return response.json()

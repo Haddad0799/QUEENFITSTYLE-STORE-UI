@@ -5,6 +5,13 @@ export interface Category {
   normalizedName: string
 }
 
+export interface CategoryTree {
+  id: number
+  name: string
+  normalizedName: string
+  subcategories: CategoryTree[]
+}
+
 export interface ProductListItem {
   name: string
   slug: string

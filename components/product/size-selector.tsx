@@ -6,6 +6,7 @@ import type { ProductSku } from '@/lib/types'
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -40,6 +41,9 @@ export function SizeSelector({ skus, selectedSize, onSizeChange }: SizeSelectorP
                   <Ruler className="h-5 w-5" />
                   Guia de Tamanhos
                 </DialogTitle>
+                <DialogDescription>
+                  Medidas de cada tamanho disponível para este produto.
+                </DialogDescription>
               </DialogHeader>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">

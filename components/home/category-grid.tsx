@@ -1,8 +1,8 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { ArrowRight } from 'lucide-react'
-import { getCategories } from '@/lib/api'
-import type { Category } from '@/lib/types'
+import { getCategoryTree } from '@/lib/api'
+import type { CategoryTree } from '@/lib/types'
 
 const categoryImages: Record<string, { image: string; description: string }> = {
   Camisetas: {
@@ -21,6 +21,10 @@ const categoryImages: Record<string, { image: string; description: string }> = {
     image: 'https://images.unsplash.com/photo-1506629082955-511b1aa562c8?w=600&q=80',
     description: 'Conforto e estilo para seus treinos',
   },
+  Roupas: {
+    image: 'https://images.unsplash.com/photo-1594381898411-846e7d193883?w=600&q=80',
+    description: 'Moda fitness para todos os momentos',
+  },
 }
 
 const defaultImage = {
@@ -29,9 +33,9 @@ const defaultImage = {
 }
 
 export async function CategoryGrid() {
-  let categories: Category[] = []
+  let categories: CategoryTree[] = []
   try {
-    categories = await getCategories()
+    categories = await getCategoryTree()
   } catch {
     categories = []
   }
@@ -54,7 +58,7 @@ export async function CategoryGrid() {
             const meta = categoryImages[category.name] || defaultImage
             return (
               <Link
-                key={category.normalizedName}
+                key={category.id}
                 href={`/products?category=${category.normalizedName}`}
                 className="group relative overflow-hidden rounded-lg aspect-[4/5]"
               >
@@ -70,9 +74,14 @@ export async function CategoryGrid() {
                   <h3 className="text-2xl font-serif font-medium mb-1">
                     {category.name}
                   </h3>
-                  <p className="text-sm text-background/80 mb-4">
+                  <p className="text-sm text-background/80 mb-2">
                     {meta.description}
                   </p>
+                  {category.subcategories.length > 0 && (
+                    <p className="text-xs text-background/60 mb-3">
+                      {category.subcategories.map((s) => s.name).join(' · ')}
+                    </p>
+                  )}
                   <span className="inline-flex items-center text-sm font-medium group-hover:underline">
                     Explorar
                     <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
