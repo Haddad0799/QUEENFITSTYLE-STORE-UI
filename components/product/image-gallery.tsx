@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Image from 'next/image'
 import { cn } from '@/lib/utils'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
@@ -13,6 +13,10 @@ interface ImageGalleryProps {
 
 export function ImageGallery({ images, productName }: ImageGalleryProps) {
   const [selectedIndex, setSelectedIndex] = useState(0)
+
+  useEffect(() => {
+    setSelectedIndex(0)
+  }, [images])
 
   const handlePrevious = () => {
     setSelectedIndex((prev) => (prev === 0 ? images.length - 1 : prev - 1))

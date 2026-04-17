@@ -3,14 +3,62 @@ import type {
   ProductListResponse,
   ProductDetail,
   SkuDetail,
-  ProductFilters,
-  Category,
+  CatalogQueryFilters,
   CategoryTree,
+  AvailableCatalogFilters,
+  CatalogColorFacet,
 } from './types'
+import { buildCatalogQueryString } from './catalog-query'
 import { normalizeCategoryTree } from './category-tree-normalizer'
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
+const PRODUCTS_ENDPOINT = `${API_BASE_URL}/store/products`
 const CATEGORY_ENDPOINT = `${API_BASE_URL}/store/catalog/categories`
+const FILTERS_ENDPOINT = `${API_BASE_URL}/store/catalog/filters`
+
+function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((item) => typeof item === 'string')
+}
+
+function normalizeStringFacet(value: unknown) {
+  if (!isStringArray(value)) {
+    return []
+  }
+
+  return [...new Set(value.map((item: string) => item.trim()).filter((item: string) => item.length > 0))]
+}
+
+function normalizeColorFacets(value: unknown): CatalogColorFacet[] {
+  if (!Array.isArray(value)) {
+    return []
+  }
+
+  const normalizedColors = value.flatMap((item) => {
+    if (!item || typeof item !== 'object') {
+      return []
+    }
+
+    const rawName = 'name' in item ? item.name : undefined
+    const rawHex = 'hex' in item ? item.hex : undefined
+
+    if (typeof rawName !== 'string' || typeof rawHex !== 'string') {
+      return []
+    }
+
+    const name = rawName.trim()
+    const hex = rawHex.trim()
+
+    if (!name || !hex) {
+      return []
+    }
+
+    return [{ name, hex }]
+  })
+
+  return normalizedColors.filter(
+    (color, index, array) => array.findIndex((item) => item.name === color.name) === index
+  )
+}
 
 async function fetchCategoryResponse(): Promise<Response> {
   return fetch(CATEGORY_ENDPOINT, {
@@ -18,44 +66,47 @@ async function fetchCategoryResponse(): Promise<Response> {
   })
 }
 
-// Função auxiliar para construir query params
-function buildQueryParams(filters: ProductFilters): string {
-  const params = new URLSearchParams()
-  const hasSizeFilter = Boolean(filters.size && filters.size !== 'all')
-
-  if (filters.category && filters.category !== 'all') params.append('category', filters.category)
-  if (filters.color && filters.color !== 'all') params.append('color', filters.color)
-  if (filters.size && filters.size !== 'all') params.append('size', filters.size)
-  if (filters.minPrice !== undefined && filters.minPrice !== null && filters.minPrice !== 0) params.append('minPrice', filters.minPrice.toString())
-  if (filters.maxPrice !== undefined && filters.maxPrice !== null && filters.maxPrice !== 0) params.append('maxPrice', filters.maxPrice.toString())
-  if (filters.search && filters.search.trim() !== '') params.append('search', filters.search)
-  if (filters.isLaunch) params.append('isLaunch', 'true')
-  if (filters.page !== undefined && filters.page !== null) params.append('page', filters.page.toString())
-  if (!hasSizeFilter && filters.pageSize !== undefined && filters.pageSize !== null) params.append('size', filters.pageSize.toString())
-
-  return params.toString()
+function buildRequestUrl(endpoint: string, filters: CatalogQueryFilters = {}) {
+  const queryString = buildCatalogQueryString(filters)
+  return `${endpoint}${queryString ? `?${queryString}` : ''}`
 }
 
-// Listar produtos com filtros
-export async function getProducts(filters: ProductFilters = {}): Promise<ProductListResponse> {
-  const queryString = buildQueryParams(filters)
-  const url = `${API_BASE_URL}/store/products${queryString ? `?${queryString}` : ''}`
-  console.log('URL de requisição:', url) // Log da URL para depuração
-
-  const response = await fetch(url, {
+export async function getProducts(
+  filters: CatalogQueryFilters = {}
+): Promise<ProductListResponse> {
+  const response = await fetch(buildRequestUrl(PRODUCTS_ENDPOINT, filters), {
     next: { tags: ['catalog-products'], revalidate: 300 }
   })
-  
+
   if (!response.ok) {
     throw new Error('Falha ao carregar produtos')
   }
-  
+
   return response.json()
+}
+
+export async function getAvailableFilters(
+  filters: CatalogQueryFilters = {}
+): Promise<AvailableCatalogFilters> {
+  const response = await fetch(buildRequestUrl(FILTERS_ENDPOINT, filters), {
+    next: { tags: ['catalog-filters'], revalidate: 300 }
+  })
+
+  if (!response.ok) {
+    throw new Error('Falha ao carregar filtros disponíveis')
+  }
+
+  const data: { colors?: unknown; sizes?: unknown } = await response.json()
+
+  return {
+    colors: normalizeColorFacets(data.colors),
+    sizes: normalizeStringFacet(data.sizes),
+  }
 }
 
 export async function getProductsByCategories(
   categoryValues: string[],
-  filters: ProductFilters = {}
+  filters: CatalogQueryFilters = {}
 ): Promise<ProductListResponse> {
   const uniqueCategories = [...new Set(categoryValues.filter(Boolean))]
   const mergedProducts = new Map<string, ProductListItem>()
@@ -124,27 +175,19 @@ export async function getSkuDetail(slug: string, skuCode: string): Promise<SkuDe
   return response.json()
 }
 
-// Listar categorias
-export async function getCategories(): Promise<Category[]> {
+export async function getCategories(): Promise<CategoryTree[]> {
   const response = await fetchCategoryResponse()
 
   if (!response.ok) {
     throw new Error('Falha ao carregar categorias')
   }
 
-  return response.json()
-}
-
-// Listar árvore de categorias
-export async function getCategoryTree(): Promise<CategoryTree[]> {
-  const response = await fetchCategoryResponse()
-
-  if (!response.ok) {
-    throw new Error('Falha ao carregar árvore de categorias')
-  }
-
   const data = await response.json()
   return normalizeCategoryTree(data)
+}
+
+export async function getCategoryTree(): Promise<CategoryTree[]> {
+  return getCategories()
 }
 
 // Formatar preço em BRL

@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { ShoppingBag, Heart, Truck, RotateCcw, Shield, Check } from 'lucide-react'
 import type { ProductDetail, ProductColor, ProductSku } from '@/lib/types'
 import { formatPrice } from '@/lib/api'
@@ -12,15 +13,102 @@ import { SizeSelector } from '@/components/product/size-selector'
 interface ProductDetailClientProps {
   product: ProductDetail
   priceDisplay: string
+  initialColorName?: string
+  initialLabel?: string
 }
 
-export function ProductDetailClient({ product, priceDisplay }: ProductDetailClientProps) {
+function normalizeText(value?: string | null) {
+  const normalizedValue = value?.trim()
+  return normalizedValue ? normalizedValue.toLocaleLowerCase('pt-BR') : undefined
+}
+
+function findColorByName(colors: ProductColor[], colorName?: string | null) {
+  const normalizedRequestedColor = normalizeText(colorName)
+
+  if (!normalizedRequestedColor) {
+    return null
+  }
+
+  return (
+    colors.find(
+      (color) => normalizeText(color.colorName) === normalizedRequestedColor
+    ) ?? null
+  )
+}
+
+function getFallbackColor(colors: ProductColor[]) {
+  return colors.find((color) => color.skus.some((sku) => sku.inStock)) ?? colors[0] ?? null
+}
+
+function getPreferredSku(color: ProductColor | null) {
+  if (!color) {
+    return null
+  }
+
+  return color.skus.find((sku) => sku.inStock) ?? color.skus[0] ?? null
+}
+
+function findSkuByLabel(color: ProductColor | null, label?: string | null) {
+  const normalizedRequestedLabel = normalizeText(label)
+
+  if (!color || !normalizedRequestedLabel) {
+    return null
+  }
+
+  return (
+    color.skus.find((sku) => normalizeText(sku.sizeName) === normalizedRequestedLabel) ?? null
+  )
+}
+
+function resolveSelection(
+  colors: ProductColor[],
+  requestedColorName?: string,
+  requestedLabel?: string
+) {
+  const selectedColor = findColorByName(colors, requestedColorName) ?? getFallbackColor(colors)
+  const selectedSku =
+    findSkuByLabel(selectedColor, requestedLabel) ?? getPreferredSku(selectedColor)
+
+  return {
+    selectedColor,
+    selectedSku,
+  }
+}
+
+export function ProductDetailClient({
+  product,
+  priceDisplay,
+  initialColorName,
+  initialLabel,
+}: ProductDetailClientProps) {
+  const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+  const requestedColorName = searchParams.get('color')?.trim() || initialColorName
+  const requestedLabel = searchParams.get('label')?.trim() || initialLabel
+  const resolvedSelection = useMemo(
+    () => resolveSelection(product.colors, requestedColorName, requestedLabel),
+    [product.colors, requestedColorName, requestedLabel]
+  )
   const [selectedColor, setSelectedColor] = useState<ProductColor | null>(
-    product.colors[0] || null
+    () => resolvedSelection.selectedColor
   )
   const [selectedSku, setSelectedSku] = useState<ProductSku | null>(
-    product.colors[0]?.skus[0] || null
+    () => resolvedSelection.selectedSku
   )
+
+  useEffect(() => {
+    setSelectedColor((currentColor) =>
+      currentColor?.colorName === resolvedSelection.selectedColor?.colorName
+        ? currentColor
+        : resolvedSelection.selectedColor
+    )
+    setSelectedSku((currentSku) =>
+      currentSku?.code === resolvedSelection.selectedSku?.code
+        ? currentSku
+        : resolvedSelection.selectedSku
+    )
+  }, [resolvedSelection])
 
   // Get current images based on selected color
   const currentImages = useMemo(() => {
@@ -38,24 +126,62 @@ export function ProductDetailClient({ product, priceDisplay }: ProductDetailClie
     return priceDisplay
   }, [selectedSku, priceDisplay])
 
+  const syncSelectionSearchParams = useCallback(
+    (selection: { colorName?: string; label?: string }) => {
+      const nextSearchParams = new URLSearchParams(searchParams.toString())
+      const normalizedColorName = selection.colorName?.trim()
+      const normalizedLabel = selection.label?.trim()
+
+      if (normalizedColorName) {
+        nextSearchParams.set('color', normalizedColorName)
+      } else {
+        nextSearchParams.delete('color')
+      }
+
+      if (normalizedLabel) {
+        nextSearchParams.set('label', normalizedLabel)
+      } else {
+        nextSearchParams.delete('label')
+      }
+
+      const queryString = nextSearchParams.toString()
+      router.replace(queryString ? `${pathname}?${queryString}` : pathname, {
+        scroll: false,
+      })
+    },
+    [pathname, router, searchParams]
+  )
+
   // Handle color change
-  const handleColorChange = (colorName: string) => {
-    const color = product.colors.find((c) => c.colorName === colorName)
+  const handleColorChange = useCallback((colorName: string) => {
+    const color = findColorByName(product.colors, colorName)
     if (color) {
+      const nextSku = getPreferredSku(color)
       setSelectedColor(color)
-      // Auto-select first available SKU for new color
-      const availableSku = color.skus.find((s) => s.inStock) || color.skus[0]
-      setSelectedSku(availableSku || null)
+      setSelectedSku(nextSku)
+      syncSelectionSearchParams({
+        colorName: color.colorName,
+        label: nextSku?.sizeName,
+      })
     }
-  }
+  }, [product.colors, syncSelectionSearchParams])
 
   // Handle size change
-  const handleSizeChange = (sizeName: string) => {
+  const handleSizeChange = useCallback((sizeName: string) => {
     if (selectedColor) {
       const sku = selectedColor.skus.find((s) => s.sizeName === sizeName)
-      setSelectedSku(sku || null)
+
+      if (!sku) {
+        return
+      }
+
+      setSelectedSku(sku)
+      syncSelectionSearchParams({
+        colorName: selectedColor.colorName,
+        label: sku.sizeName,
+      })
     }
-  }
+  }, [selectedColor, syncSelectionSearchParams])
 
   // Check stock status
   const isInStock = selectedSku?.inStock ?? false

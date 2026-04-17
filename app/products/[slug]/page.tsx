@@ -5,8 +5,22 @@ import { getProductBySlug, getCategories, formatPrice } from '@/lib/api'
 import { ProductDetailSkeleton } from '@/components/product/product-skeleton'
 import { ProductDetailClient } from './product-detail-client'
 
+interface ProductPageSearchParams {
+  color?: string | string[]
+  label?: string | string[]
+}
+
 interface ProductPageProps {
   params: Promise<{ slug: string }>
+  searchParams: Promise<ProductPageSearchParams>
+}
+
+function getSingleSearchParam(value?: string | string[]) {
+  if (Array.isArray(value)) {
+    return value[0]
+  }
+
+  return value
 }
 
 // Generate metadata for SEO
@@ -33,19 +47,33 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
   }
 }
 
-export default async function ProductPage({ params }: ProductPageProps) {
-  const { slug } = await params
+export default async function ProductPage({ params, searchParams }: ProductPageProps) {
+  const [{ slug }, rawSearchParams] = await Promise.all([params, searchParams])
+  const initialColorName = getSingleSearchParam(rawSearchParams.color)?.trim()
+  const initialLabel = getSingleSearchParam(rawSearchParams.label)?.trim()
   
   return (
     <div className="container mx-auto px-4 py-8 lg:py-12">
       <Suspense fallback={<ProductDetailSkeleton />}>
-        <ProductDetail slug={slug} />
+        <ProductDetail
+          slug={slug}
+          initialColorName={initialColorName}
+          initialLabel={initialLabel}
+        />
       </Suspense>
     </div>
   )
 }
 
-async function ProductDetail({ slug }: { slug: string }) {
+async function ProductDetail({
+  slug,
+  initialColorName,
+  initialLabel,
+}: {
+  slug: string
+  initialColorName?: string
+  initialLabel?: string
+}) {
   let product
   
   try {
@@ -106,7 +134,12 @@ async function ProductDetail({ slug }: { slug: string }) {
       </nav>
 
       {/* Product Detail */}
-      <ProductDetailClient product={product} priceDisplay={priceDisplay} />
+      <ProductDetailClient
+        product={product}
+        priceDisplay={priceDisplay}
+        initialColorName={initialColorName}
+        initialLabel={initialLabel}
+      />
     </>
   )
 }

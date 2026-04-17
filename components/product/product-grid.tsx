@@ -4,10 +4,17 @@ import { ProductCard } from './product-card'
 
 interface ProductGridProps {
   products: ProductListItem[]
+  activeColor?: string
+  activeLabel?: string
   emptyState?: ReactNode
 }
 
-export function ProductGrid({ products, emptyState }: ProductGridProps) {
+export function ProductGrid({
+  products,
+  activeColor,
+  activeLabel,
+  emptyState,
+}: ProductGridProps) {
   if (products.length === 0) {
     return emptyState ?? (
       <div className="flex min-h-[320px] flex-col items-center justify-center border border-dashed border-border bg-muted/20 py-16 text-center">
@@ -24,7 +31,12 @@ export function ProductGrid({ products, emptyState }: ProductGridProps) {
   return (
     <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:gap-8 2xl:grid-cols-3">
       {products.map((product) => (
-        <ProductCard key={product.slug} product={product} />
+        <ProductCard
+          key={product.slug}
+          product={product}
+          activeColor={activeColor}
+          activeLabel={activeLabel}
+        />
       ))}
     </div>
   )

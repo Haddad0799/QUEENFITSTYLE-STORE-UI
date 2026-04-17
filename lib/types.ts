@@ -17,11 +17,22 @@ export interface CategoryTree {
   subcategories: CategoryTree[]
 }
 
+export interface CatalogColorFacet {
+  name: string
+  hex: string
+}
+
+export interface AvailableCatalogFilters {
+  colors: CatalogColorFacet[]
+  sizes: string[]
+}
+
 export interface ProductListItem {
   name: string
   slug: string
   categoryName: string
   mainImageUrl: string
+  displayImageUrl?: string
   minPrice: number
   isLaunch?: boolean
   launchLabel?: string
@@ -75,16 +86,33 @@ export interface SkuDetail {
   imageUrls: string[]
 }
 
-export interface ProductFilters {
+export interface CatalogQueryFilters {
   category?: string
   color?: string
-  size?: string
+  label?: string
   minPrice?: number
   maxPrice?: number
   search?: string
   isLaunch?: boolean
   page?: number
   pageSize?: number
+}
+
+export type ProductFilters = CatalogQueryFilters
+
+export interface CatalogSearchParams {
+  category?: string | string[]
+  subcategory?: string | string[]
+  color?: string | string[]
+  label?: string | string[]
+  sizeName?: string | string[]
+  minPrice?: string | string[]
+  maxPrice?: string | string[]
+  search?: string | string[]
+  isLaunch?: string | string[]
+  page?: string | string[]
+  size?: string | string[]
+  pageSize?: string | string[]
 }
 
 // Tipos para o carrinho (preparação futura)

@@ -6,17 +6,47 @@ import { Badge } from '@/components/ui/badge'
 
 interface ProductCardProps {
   product: ProductListItem
+  activeColor?: string
+  activeLabel?: string
 }
 
-export function ProductCard({ product }: ProductCardProps) {
+function buildProductHref(
+  slug: string,
+  selection?: {
+    color?: string
+    label?: string
+  }
+) {
+  const params = new URLSearchParams()
+  const normalizedColor = selection?.color?.trim()
+  const normalizedLabel = selection?.label?.trim()
+
+  if (normalizedColor) {
+    params.set('color', normalizedColor)
+  }
+
+  if (normalizedLabel) {
+    params.set('label', normalizedLabel)
+  }
+
+  const queryString = params.toString()
+  return queryString ? `/products/${slug}?${queryString}` : `/products/${slug}`
+}
+
+export function ProductCard({ product, activeColor, activeLabel }: ProductCardProps) {
+  const productImageUrl = product.displayImageUrl ?? product.mainImageUrl
+
   return (
     <Link
-      href={`/products/${product.slug}`}
+      href={buildProductHref(product.slug, {
+        color: activeColor,
+        label: activeLabel,
+      })}
       className="group block"
     >
       <div className="relative aspect-[4/5] overflow-hidden rounded-sm bg-[#f3f2ef]">
         <Image
-          src={product.mainImageUrl}
+          src={productImageUrl}
           alt={product.name}
           fill
           className="object-cover transition-transform duration-500 group-hover:scale-[1.02]"
