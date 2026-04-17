@@ -6,15 +6,19 @@ import { ProductGrid } from '@/components/product/product-grid'
 import { ProductFilters } from '@/components/product/product-filters'
 import { ProductPagination } from '@/components/product/product-pagination'
 import { ProductGridSkeleton } from '@/components/product/product-skeleton'
+import { CatalogEmptyState } from '@/components/product/catalog-empty-state'
 
 export const metadata: Metadata = {
   title: 'Produtos',
-  description: 'Explore nossa coleção completa de roupas fitness femininas. Leggings, tops, shorts e muito mais.',
+  description:
+    'Explore nossa coleção completa de roupas fitness femininas. Leggings, tops, shorts e muito mais.',
 }
 
 interface ProductsPageProps {
   searchParams: Promise<{
     category?: string
+    color?: string
+    size?: string
     search?: string
     minPrice?: string
     maxPrice?: string
@@ -43,8 +47,10 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
         </div>
       </div>
 
-      <div className="grid gap-8 lg:grid-cols-[280px_minmax(0,1fr)] lg:gap-10">
-        <Suspense fallback={<div className="h-64 border-r border-border" />}>
+      <div className="grid gap-8 lg:grid-cols-[264px_minmax(0,1fr)] lg:gap-14">
+        <Suspense
+          fallback={<div className="h-[480px] rounded-[2rem] border border-black/6 bg-[#fcfbf8]" />}
+        >
           <ProductFilters />
         </Suspense>
 
@@ -52,6 +58,8 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
           <Suspense fallback={<ProductGridSkeleton count={8} />}>
             <ProductList
               category={params.category}
+              color={params.color}
+              size={params.size}
               search={params.search}
               minPrice={params.minPrice}
               maxPrice={params.maxPrice}
@@ -66,12 +74,16 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
 
 async function ProductList({
   category,
+  color,
+  size,
   search,
   minPrice,
   maxPrice,
   page,
 }: {
   category?: string
+  color?: string
+  size?: string
   search?: string
   minPrice?: string
   maxPrice?: string
@@ -83,11 +95,13 @@ async function ProductList({
   try {
     const filters = {
       category,
+      color: color && color !== 'all' ? color : undefined,
+      size: size && size !== 'all' ? size : undefined,
       search,
       minPrice: minPrice ? parseFloat(minPrice) : undefined,
       maxPrice: maxPrice ? parseFloat(maxPrice) : undefined,
       page: currentPage,
-      pageSize: 12,
+      pageSize: size && size !== 'all' ? undefined : 12,
     }
 
     if (category) {
@@ -96,14 +110,14 @@ async function ProductList({
 
       if (selection?.includesDescendants) {
         const categoryValues = collectCategoryAndDescendants(selection.node).map(
-          (item) => item.normalizedName
+          (item) => item.slug
         )
 
         response = await getProductsByCategories(categoryValues, filters)
       } else {
         response = await getProducts({
           ...filters,
-          category: selection?.node.normalizedName ?? category,
+          category: selection?.node.slug ?? selection?.node.normalizedName ?? category,
         })
       }
     } else {
@@ -113,7 +127,9 @@ async function ProductList({
     return (
       <div className="py-16 text-center">
         <p className="text-lg text-muted-foreground">Não foi possível carregar os produtos.</p>
-        <p className="mt-1 text-sm text-muted-foreground">Por favor, tente novamente mais tarde.</p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Por favor, tente novamente mais tarde.
+        </p>
       </div>
     )
   }
@@ -128,7 +144,14 @@ async function ProductList({
         </p>
       </div>
 
-      <ProductGrid products={response.content} />
+      <ProductGrid
+        products={response.content}
+        emptyState={
+          <CatalogEmptyState
+            hasActiveFilters={Boolean(category || color || size || search || minPrice || maxPrice)}
+          />
+        }
+      />
 
       {response.totalPages > 1 && (
         <div className="mt-12">

@@ -1,34 +1,22 @@
 import { NextResponse } from 'next/server'
+import { normalizeCategoryTree } from '@/lib/category-tree-normalizer'
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
-const CATEGORY_ENDPOINTS = [`${API_BASE_URL}/erp/categories`, `${API_BASE_URL}/store/categories`]
+const CATEGORY_ENDPOINT = `${API_BASE_URL}/store/catalog/categories`
 
-export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url)
-  const tree = searchParams.get('tree')
-  const suffix = tree === 'true' ? '/tree' : ''
-  let lastStatus = 500
+export async function GET() {
+  try {
+    const response = await fetch(CATEGORY_ENDPOINT, {
+      next: { tags: ['catalog-categories'], revalidate: 300 },
+    })
 
-  for (const endpoint of CATEGORY_ENDPOINTS) {
-    try {
-      const response = await fetch(`${endpoint}${suffix}`, {
-        next: { tags: ['catalog-categories'], revalidate: 300 },
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        return NextResponse.json(data)
-      }
-
-      lastStatus = response.status
-
-      if (response.status !== 404) {
-        return NextResponse.json([], { status: response.status })
-      }
-    } catch {
-      lastStatus = 500
+    if (!response.ok) {
+      return NextResponse.json([], { status: response.status })
     }
-  }
 
-  return NextResponse.json([], { status: lastStatus })
+    const data = await response.json()
+    return NextResponse.json(normalizeCategoryTree(data))
+  } catch {
+    return NextResponse.json([], { status: 500 })
+  }
 }

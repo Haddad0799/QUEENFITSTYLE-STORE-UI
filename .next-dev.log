@@ -1,0 +1,21 @@
+
+> my-project@0.1.0 dev
+> set NEXT_DISABLE_TURBOPACK=1 && next dev
+
+   ▲ Next.js 15.5.14
+   - Local:        http://localhost:3000
+   - Network:      http://172.30.112.1:3000
+   - Environments: .env
+
+ ✓ Starting...
+ ✓ Ready in 4.6s
+ ○ Compiling /products ...
+ ✓ Compiled /products in 10.2s (929 modules)
+URL de requisição: http://localhost:8080/store/products?page=0&size=12
+ GET /products 200 in 11514ms
+URL de requisição: http://localhost:8080/store/products?page=0&size=12
+ GET /products 200 in 372ms
+ ○ Compiling /api/revalidate ...
+ ✓ Compiled /api/revalidate in 1234ms (489 modules)
+ POST /api/revalidate 200 in 1461ms
+^C^C

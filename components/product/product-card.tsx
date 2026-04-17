@@ -2,6 +2,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import type { ProductListItem } from '@/lib/types'
 import { formatPrice } from '@/lib/api'
+import { Badge } from '@/components/ui/badge'
 
 interface ProductCardProps {
   product: ProductListItem
@@ -21,6 +22,11 @@ export function ProductCard({ product }: ProductCardProps) {
           className="object-cover transition-transform duration-500 group-hover:scale-[1.02]"
           sizes="(max-width: 640px) 100vw, (max-width: 1280px) 50vw, 33vw"
         />
+        {product.isLaunch ? (
+          <Badge className="absolute left-3 top-3 rounded-full bg-white/96 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.24em] text-foreground shadow-sm">
+            {product.launchLabel ?? 'NOVO'}
+          </Badge>
+        ) : null}
         <div className="absolute inset-0 bg-foreground/0 transition-colors group-hover:bg-foreground/3" />
       </div>
       <div className="mt-4 space-y-1.5">

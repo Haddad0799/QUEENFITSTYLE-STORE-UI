@@ -7,45 +7,21 @@ import type {
   Category,
   CategoryTree,
 } from './types'
+import { normalizeCategoryTree } from './category-tree-normalizer'
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
-const CATEGORY_ENDPOINTS = [`${API_BASE_URL}/erp/categories`, `${API_BASE_URL}/store/categories`]
+const CATEGORY_ENDPOINT = `${API_BASE_URL}/store/catalog/categories`
 
-async function fetchCategoryResponse(tree = false): Promise<Response> {
-  const suffix = tree ? '/tree' : ''
-  let lastResponse: Response | null = null
-  let lastError: unknown = null
-
-  for (const endpoint of CATEGORY_ENDPOINTS) {
-    try {
-      const response = await fetch(`${endpoint}${suffix}`, {
-        next: { tags: ['catalog-categories'], revalidate: 300 }
-      })
-
-      if (response.ok) {
-        return response
-      }
-
-      lastResponse = response
-
-      if (response.status !== 404) {
-        break
-      }
-    } catch (error) {
-      lastError = error
-    }
-  }
-
-  if (lastResponse) {
-    return lastResponse
-  }
-
-  throw lastError instanceof Error ? lastError : new Error('Falha ao carregar categorias')
+async function fetchCategoryResponse(): Promise<Response> {
+  return fetch(CATEGORY_ENDPOINT, {
+    next: { tags: ['catalog-categories'], revalidate: 300 }
+  })
 }
 
 // Função auxiliar para construir query params
 function buildQueryParams(filters: ProductFilters): string {
   const params = new URLSearchParams()
+  const hasSizeFilter = Boolean(filters.size && filters.size !== 'all')
 
   if (filters.category && filters.category !== 'all') params.append('category', filters.category)
   if (filters.color && filters.color !== 'all') params.append('color', filters.color)
@@ -53,8 +29,9 @@ function buildQueryParams(filters: ProductFilters): string {
   if (filters.minPrice !== undefined && filters.minPrice !== null && filters.minPrice !== 0) params.append('minPrice', filters.minPrice.toString())
   if (filters.maxPrice !== undefined && filters.maxPrice !== null && filters.maxPrice !== 0) params.append('maxPrice', filters.maxPrice.toString())
   if (filters.search && filters.search.trim() !== '') params.append('search', filters.search)
+  if (filters.isLaunch) params.append('isLaunch', 'true')
   if (filters.page !== undefined && filters.page !== null) params.append('page', filters.page.toString())
-  if (filters.pageSize !== undefined && filters.pageSize !== null) params.append('size', filters.pageSize.toString())
+  if (!hasSizeFilter && filters.pageSize !== undefined && filters.pageSize !== null) params.append('size', filters.pageSize.toString())
 
   return params.toString()
 }
@@ -160,13 +137,14 @@ export async function getCategories(): Promise<Category[]> {
 
 // Listar árvore de categorias
 export async function getCategoryTree(): Promise<CategoryTree[]> {
-  const response = await fetchCategoryResponse(true)
+  const response = await fetchCategoryResponse()
 
   if (!response.ok) {
     throw new Error('Falha ao carregar árvore de categorias')
   }
 
-  return response.json()
+  const data = await response.json()
+  return normalizeCategoryTree(data)
 }
 
 // Formatar preço em BRL

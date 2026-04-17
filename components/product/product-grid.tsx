@@ -1,18 +1,20 @@
+import type { ReactNode } from 'react'
 import type { ProductListItem } from '@/lib/types'
 import { ProductCard } from './product-card'
 
 interface ProductGridProps {
   products: ProductListItem[]
+  emptyState?: ReactNode
 }
 
-export function ProductGrid({ products }: ProductGridProps) {
+export function ProductGrid({ products, emptyState }: ProductGridProps) {
   if (products.length === 0) {
-    return (
+    return emptyState ?? (
       <div className="flex min-h-[320px] flex-col items-center justify-center border border-dashed border-border bg-muted/20 py-16 text-center">
         <p className="text-lg text-muted-foreground">
           Nenhum produto encontrado
         </p>
-        <p className="text-sm text-muted-foreground mt-1">
+        <p className="mt-1 text-sm text-muted-foreground">
           Tente ajustar os filtros ou buscar por outro termo
         </p>
       </div>

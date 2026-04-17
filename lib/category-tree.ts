@@ -9,7 +9,8 @@ export interface CategorySelection {
 }
 
 export function buildCategoryValue(path: CategoryTree[]): string {
-  return path.map((category) => category.normalizedName).join('/')
+  const leaf = path[path.length - 1]
+  return leaf?.slug ?? leaf?.normalizedName ?? ''
 }
 
 export function buildCategoryLabel(path: CategoryTree[]): string {
@@ -31,7 +32,10 @@ export function findCategorySelection(
     const path: CategoryTree[] = []
 
     for (const segment of segments) {
-      const match = currentLevel.find((category) => category.normalizedName === segment)
+      const match = currentLevel.find(
+        (category) =>
+          category.slug === segment || category.normalizedName === segment
+      )
 
       if (!match) {
         return null
@@ -51,18 +55,18 @@ export function findCategorySelection(
     }
   }
 
-  return findCategorySelectionByNormalizedName(categories, value)
+  return findCategorySelectionBySlug(categories, value)
 }
 
-function findCategorySelectionByNormalizedName(
+function findCategorySelectionBySlug(
   categories: CategoryTree[],
-  normalizedName: string,
+  slug: string,
   ancestors: CategoryTree[] = []
 ): CategorySelection | null {
   for (const category of categories) {
     const path = [...ancestors, category]
 
-    if (category.normalizedName === normalizedName) {
+    if (category.slug === slug || category.normalizedName === slug) {
       return {
         node: category,
         path,
@@ -72,9 +76,9 @@ function findCategorySelectionByNormalizedName(
       }
     }
 
-    const nestedMatch = findCategorySelectionByNormalizedName(
+    const nestedMatch = findCategorySelectionBySlug(
       category.subcategories,
-      normalizedName,
+      slug,
       path
     )
 

@@ -1,14 +1,19 @@
 // Tipos para a API de produtos
 
 export interface Category {
+  id?: number
   name: string
-  normalizedName: string
+  slug: string
+  normalizedName?: string
+  productCount?: number
 }
 
 export interface CategoryTree {
   id: number
   name: string
-  normalizedName: string
+  slug: string
+  normalizedName?: string
+  productCount?: number
   subcategories: CategoryTree[]
 }
 
@@ -18,6 +23,8 @@ export interface ProductListItem {
   categoryName: string
   mainImageUrl: string
   minPrice: number
+  isLaunch?: boolean
+  launchLabel?: string
 }
 
 export interface ProductListResponse {
@@ -75,6 +82,7 @@ export interface ProductFilters {
   minPrice?: number
   maxPrice?: number
   search?: string
+  isLaunch?: boolean
   page?: number
   pageSize?: number
 }

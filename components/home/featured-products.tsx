@@ -3,10 +3,11 @@ import { ArrowRight } from 'lucide-react'
 import { getProducts } from '@/lib/api'
 import { ProductCard } from '@/components/product/product-card'
 import { Button } from '@/components/ui/button'
+import type { ProductListItem } from '@/lib/types'
 
 export async function FeaturedProducts() {
-  let products = []
-  
+  let products: ProductListItem[] = []
+
   try {
     const response = await getProducts({ pageSize: 8 })
     products = response.content
@@ -15,16 +16,15 @@ export async function FeaturedProducts() {
   }
 
   return (
-    <section className="py-16 lg:py-24">
+    <section id="lancamentos" className="scroll-mt-24 py-16 lg:py-24">
       <div className="container mx-auto px-4">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-10">
+        <div className="mb-10 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
           <div>
-            <p className="text-sm uppercase tracking-widest text-muted-foreground mb-2">
-              Destaques
+            <p className="mb-2 text-sm uppercase tracking-widest text-muted-foreground">
+              Lançamentos
             </p>
-            <h2 className="text-3xl md:text-4xl font-serif font-medium text-foreground">
-              Produtos em Alta
+            <h2 className="text-3xl font-serif font-medium text-foreground md:text-4xl">
+              Novidades da Coleção
             </h2>
           </div>
           <Button asChild variant="ghost" className="self-start sm:self-auto">
@@ -35,18 +35,15 @@ export async function FeaturedProducts() {
           </Button>
         </div>
 
-        {/* Products Grid */}
         {products.length > 0 ? (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-2 gap-6 md:grid-cols-3 lg:grid-cols-4">
             {products.map((product) => (
               <ProductCard key={product.slug} product={product} />
             ))}
           </div>
         ) : (
-          <div className="text-center py-16">
-            <p className="text-muted-foreground">
-              Nenhum produto disponível no momento.
-            </p>
+          <div className="py-16 text-center">
+            <p className="text-muted-foreground">Nenhum produto disponível no momento.</p>
           </div>
         )}
       </div>

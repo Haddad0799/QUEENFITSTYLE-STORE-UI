@@ -54,13 +54,15 @@ async function ProductDetail({ slug }: { slug: string }) {
     notFound()
   }
 
-  // Look up normalizedName for breadcrumb link
+  // Look up category slug for breadcrumb link
   let categorySlug = product.categoryName
   try {
     const categories = await getCategories()
     const match = categories.find(c => c.name === product.categoryName)
-    if (match) categorySlug = match.normalizedName
+    if (match) categorySlug = match.slug
   } catch { /* fallback to categoryName */ }
+
+  const hasCategory = Boolean(product.categoryName?.trim())
 
   // Get price range display
   const priceDisplay = product.minPrice === product.maxPrice
@@ -83,15 +85,19 @@ async function ProductDetail({ slug }: { slug: string }) {
               Produtos
             </a>
           </li>
-          <li>/</li>
-          <li>
-            <a 
-              href={`/products?category=${categorySlug}`} 
-              className="hover:text-foreground transition-colors"
-            >
-              {product.categoryName}
-            </a>
-          </li>
+          {hasCategory ? (
+            <>
+              <li>/</li>
+              <li>
+                <a 
+                  href={`/products?category=${categorySlug}`} 
+                  className="hover:text-foreground transition-colors"
+                >
+                  {product.categoryName}
+                </a>
+              </li>
+            </>
+          ) : null}
           <li>/</li>
           <li className="text-foreground font-medium truncate max-w-[200px]">
             {product.name}
