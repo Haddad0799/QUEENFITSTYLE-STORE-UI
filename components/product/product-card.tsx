@@ -35,11 +35,12 @@ function buildProductHref(
 
 export function ProductCard({ product, activeColor, activeLabel }: ProductCardProps) {
   const productImageUrl = product.displayImageUrl ?? product.mainImageUrl
+  const defaultColor = activeColor?.trim() || product.mainColor?.name?.trim()
 
   return (
     <Link
       href={buildProductHref(product.slug, {
-        color: activeColor,
+        color: defaultColor,
         label: activeLabel,
       })}
       className="group block"

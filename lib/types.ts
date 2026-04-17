@@ -22,6 +22,11 @@ export interface CatalogColorFacet {
   hex: string
 }
 
+export interface ProductMainColor {
+  name: string
+  hex?: string
+}
+
 export interface AvailableCatalogFilters {
   colors: CatalogColorFacet[]
   sizes: string[]
@@ -33,6 +38,7 @@ export interface ProductListItem {
   categoryName: string
   mainImageUrl: string
   displayImageUrl?: string
+  mainColor?: ProductMainColor
   minPrice: number
   isLaunch?: boolean
   launchLabel?: string
@@ -68,6 +74,7 @@ export interface ProductDetail {
   slug: string
   categoryName: string
   mainImageUrl: string
+  mainColor?: ProductMainColor
   minPrice: number
   maxPrice: number
   colors: ProductColor[]

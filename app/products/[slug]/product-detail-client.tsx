@@ -36,8 +36,8 @@ function findColorByName(colors: ProductColor[], colorName?: string | null) {
   )
 }
 
-function getFallbackColor(colors: ProductColor[]) {
-  return colors.find((color) => color.skus.some((sku) => sku.inStock)) ?? colors[0] ?? null
+function getFirstColor(colors: ProductColor[]) {
+  return colors[0] ?? null
 }
 
 function getPreferredSku(color: ProductColor | null) {
@@ -45,7 +45,7 @@ function getPreferredSku(color: ProductColor | null) {
     return null
   }
 
-  return color.skus.find((sku) => sku.inStock) ?? color.skus[0] ?? null
+  return color.skus.find((sku) => sku.inStock) ?? null
 }
 
 function findSkuByLabel(color: ProductColor | null, label?: string | null) {
@@ -63,9 +63,13 @@ function findSkuByLabel(color: ProductColor | null, label?: string | null) {
 function resolveSelection(
   colors: ProductColor[],
   requestedColorName?: string,
+  defaultColorName?: string,
   requestedLabel?: string
 ) {
-  const selectedColor = findColorByName(colors, requestedColorName) ?? getFallbackColor(colors)
+  const selectedColor =
+    findColorByName(colors, requestedColorName) ??
+    findColorByName(colors, defaultColorName) ??
+    getFirstColor(colors)
   const selectedSku =
     findSkuByLabel(selectedColor, requestedLabel) ?? getPreferredSku(selectedColor)
 
@@ -86,9 +90,16 @@ export function ProductDetailClient({
   const searchParams = useSearchParams()
   const requestedColorName = searchParams.get('color')?.trim() || initialColorName
   const requestedLabel = searchParams.get('label')?.trim() || initialLabel
+  const defaultColorName = product.mainColor?.name
   const resolvedSelection = useMemo(
-    () => resolveSelection(product.colors, requestedColorName, requestedLabel),
-    [product.colors, requestedColorName, requestedLabel]
+    () =>
+      resolveSelection(
+        product.colors,
+        requestedColorName,
+        defaultColorName,
+        requestedLabel
+      ),
+    [defaultColorName, product.colors, requestedColorName, requestedLabel]
   )
   const [selectedColor, setSelectedColor] = useState<ProductColor | null>(
     () => resolvedSelection.selectedColor
