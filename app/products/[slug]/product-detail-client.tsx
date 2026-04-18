@@ -1,11 +1,20 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { startTransition, useCallback, useEffect, useMemo, useState } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { ShoppingBag, Heart, Truck, RotateCcw, Shield, Check } from 'lucide-react'
 import type { ProductDetail, ProductColor, ProductSku } from '@/lib/types'
 import { formatPrice } from '@/lib/api'
+import {
+  findColorByName,
+  getPreferredSku,
+  resolveInitialProductSelection,
+} from '@/lib/product-selection'
 import { Button } from '@/components/ui/button'
+import {
+  buildNavigationSignature,
+  useNavigationLoading,
+} from '@/components/navigation/navigation-loading-provider'
 import { ImageGallery } from '@/components/product/image-gallery'
 import { ColorSelector } from '@/components/product/color-selector'
 import { SizeSelector } from '@/components/product/size-selector'
@@ -17,68 +26,6 @@ interface ProductDetailClientProps {
   initialLabel?: string
 }
 
-function normalizeText(value?: string | null) {
-  const normalizedValue = value?.trim()
-  return normalizedValue ? normalizedValue.toLocaleLowerCase('pt-BR') : undefined
-}
-
-function findColorByName(colors: ProductColor[], colorName?: string | null) {
-  const normalizedRequestedColor = normalizeText(colorName)
-
-  if (!normalizedRequestedColor) {
-    return null
-  }
-
-  return (
-    colors.find(
-      (color) => normalizeText(color.colorName) === normalizedRequestedColor
-    ) ?? null
-  )
-}
-
-function getFirstColor(colors: ProductColor[]) {
-  return colors[0] ?? null
-}
-
-function getPreferredSku(color: ProductColor | null) {
-  if (!color) {
-    return null
-  }
-
-  return color.skus.find((sku) => sku.inStock) ?? null
-}
-
-function findSkuByLabel(color: ProductColor | null, label?: string | null) {
-  const normalizedRequestedLabel = normalizeText(label)
-
-  if (!color || !normalizedRequestedLabel) {
-    return null
-  }
-
-  return (
-    color.skus.find((sku) => normalizeText(sku.sizeName) === normalizedRequestedLabel) ?? null
-  )
-}
-
-function resolveSelection(
-  colors: ProductColor[],
-  requestedColorName?: string,
-  defaultColorName?: string,
-  requestedLabel?: string
-) {
-  const selectedColor =
-    findColorByName(colors, requestedColorName) ??
-    findColorByName(colors, defaultColorName) ??
-    getFirstColor(colors)
-  const selectedSku =
-    findSkuByLabel(selectedColor, requestedLabel) ?? getPreferredSku(selectedColor)
-
-  return {
-    selectedColor,
-    selectedSku,
-  }
-}
-
 export function ProductDetailClient({
   product,
   priceDisplay,
@@ -88,18 +35,21 @@ export function ProductDetailClient({
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
+  const { beginNavigation } = useNavigationLoading()
   const requestedColorName = searchParams.get('color')?.trim() || initialColorName
   const requestedLabel = searchParams.get('label')?.trim() || initialLabel
   const defaultColorName = product.mainColor?.name
+  const defaultLabel = product.defaultSelection?.label
   const resolvedSelection = useMemo(
     () =>
-      resolveSelection(
-        product.colors,
+      resolveInitialProductSelection({
+        colors: product.colors,
         requestedColorName,
         defaultColorName,
-        requestedLabel
-      ),
-    [defaultColorName, product.colors, requestedColorName, requestedLabel]
+        requestedLabel,
+        defaultLabel,
+      }),
+    [defaultColorName, defaultLabel, product.colors, requestedColorName, requestedLabel]
   )
   const [selectedColor, setSelectedColor] = useState<ProductColor | null>(
     () => resolvedSelection.selectedColor
@@ -126,8 +76,9 @@ export function ProductDetailClient({
     if (selectedColor?.imageUrls?.length) {
       return selectedColor.imageUrls
     }
-    return product.mainImageUrl ? [product.mainImageUrl] : []
-  }, [selectedColor, product.mainImageUrl])
+    const fallbackImageUrl = product.displayImageUrl ?? product.mainImageUrl
+    return fallbackImageUrl ? [fallbackImageUrl] : []
+  }, [product.displayImageUrl, product.mainImageUrl, selectedColor])
 
   // Get current price based on selected SKU
   const currentPrice = useMemo(() => {
@@ -156,11 +107,21 @@ export function ProductDetailClient({
       }
 
       const queryString = nextSearchParams.toString()
-      router.replace(queryString ? `${pathname}?${queryString}` : pathname, {
-        scroll: false,
+      const nextHref = queryString ? `${pathname}?${queryString}` : pathname
+      const currentHref = buildNavigationSignature(pathname, searchParams)
+
+      if (nextHref === currentHref) {
+        return
+      }
+
+      beginNavigation()
+      startTransition(() => {
+        router.replace(nextHref, {
+          scroll: false,
+        })
       })
     },
-    [pathname, router, searchParams]
+    [beginNavigation, pathname, router, searchParams]
   )
 
   // Handle color change

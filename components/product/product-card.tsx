@@ -2,6 +2,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import type { ProductListItem } from '@/lib/types'
 import { formatPrice } from '@/lib/api'
+import { getSelectionValue } from '@/lib/product-selection'
 import { Badge } from '@/components/ui/badge'
 
 interface ProductCardProps {
@@ -34,14 +35,17 @@ function buildProductHref(
 }
 
 export function ProductCard({ product, activeColor, activeLabel }: ProductCardProps) {
-  const productImageUrl = product.displayImageUrl ?? product.mainImageUrl
-  const defaultColor = activeColor?.trim() || product.mainColor?.name?.trim()
+  const productImageUrl = product.displayImageUrl
+  const navigationColor = getSelectionValue(activeColor) ?? getSelectionValue(product.mainColor?.name)
+  const navigationLabel =
+    getSelectionValue(activeLabel) ?? getSelectionValue(product.defaultSelection?.label)
+  const categoryName = product.category.name
 
   return (
     <Link
       href={buildProductHref(product.slug, {
-        color: defaultColor,
-        label: activeLabel,
+        color: navigationColor,
+        label: navigationLabel,
       })}
       className="group block"
     >
@@ -62,13 +66,13 @@ export function ProductCard({ product, activeColor, activeLabel }: ProductCardPr
       </div>
       <div className="mt-4 space-y-1.5">
         <p className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">
-          {product.categoryName}
+          {categoryName}
         </p>
         <h3 className="line-clamp-2 text-[15px] font-medium leading-snug text-foreground transition-opacity group-hover:opacity-70">
           {product.name}
         </h3>
         <p className="text-sm font-semibold text-foreground">
-          {formatPrice(product.minPrice)}
+          {formatPrice(product.displayPrice)}
         </p>
       </div>
     </Link>

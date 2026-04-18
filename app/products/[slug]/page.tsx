@@ -36,7 +36,9 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
       openGraph: {
         title: product.name,
         description: product.description || `${product.name} - ${product.categoryName}`,
-        images: product.mainImageUrl ? [{ url: product.mainImageUrl }] : [],
+        images: (product.displayImageUrl ?? product.mainImageUrl)
+          ? [{ url: product.displayImageUrl ?? product.mainImageUrl }]
+          : [],
         type: 'website',
       },
     }
@@ -93,9 +95,14 @@ async function ProductDetail({
   const hasCategory = Boolean(product.categoryName?.trim())
 
   // Get price range display
-  const priceDisplay = product.minPrice === product.maxPrice
-    ? formatPrice(product.minPrice)
-    : `${formatPrice(product.minPrice)} - ${formatPrice(product.maxPrice)}`
+  const priceDisplay =
+    typeof product.defaultSelection?.price === 'number'
+      ? formatPrice(product.defaultSelection.price)
+      : typeof product.displayPrice === 'number'
+        ? formatPrice(product.displayPrice)
+        : product.minPrice === product.maxPrice
+          ? formatPrice(product.minPrice)
+          : `${formatPrice(product.minPrice)} - ${formatPrice(product.maxPrice)}`
 
   return (
     <>

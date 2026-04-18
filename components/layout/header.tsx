@@ -2,12 +2,16 @@
 
 import type { ReactNode } from 'react'
 import Link from 'next/link'
-import { useEffect, useRef, useState } from 'react'
+import { startTransition, useEffect, useRef, useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { ChevronDown, Menu, Search, ShoppingBag, User, X } from 'lucide-react'
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import {
+  buildNavigationSignature,
+  useNavigationLoading,
+} from '@/components/navigation/navigation-loading-provider'
 import {
   Sheet,
   SheetClose,
@@ -29,6 +33,7 @@ import { cn } from '@/lib/utils'
 export function Header() {
   const pathname = usePathname()
   const router = useRouter()
+  const { beginNavigation } = useNavigationLoading()
   const [isSearchOpen, setIsSearchOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [isCatalogOpen, setIsCatalogOpen] = useState(false)
@@ -47,10 +52,24 @@ export function Header() {
       return
     }
 
-    router.push(`/products?search=${encodeURIComponent(query)}`)
     setIsSearchOpen(false)
     setIsMobileMenuOpen(false)
     setIsCatalogOpen(false)
+
+    const nextHref = `/products?search=${encodeURIComponent(query)}`
+    const currentHref = buildNavigationSignature(
+      window.location.pathname,
+      new URLSearchParams(window.location.search)
+    )
+
+    if (nextHref === currentHref) {
+      return
+    }
+
+    beginNavigation()
+    startTransition(() => {
+      router.push(nextHref)
+    })
   }
 
   useEffect(() => {

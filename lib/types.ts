@@ -27,6 +27,12 @@ export interface ProductMainColor {
   hex?: string
 }
 
+export interface ProductDefaultSelection {
+  skuCode: string
+  label: string
+  price: number
+}
+
 export interface AvailableCatalogFilters {
   colors: CatalogColorFacet[]
   sizes: string[]
@@ -35,11 +41,13 @@ export interface AvailableCatalogFilters {
 export interface ProductListItem {
   name: string
   slug: string
-  categoryName: string
+  category: Category
+  subcategory?: Category
   mainImageUrl: string
-  displayImageUrl?: string
+  displayImageUrl: string
   mainColor?: ProductMainColor
-  minPrice: number
+  defaultSelection?: ProductDefaultSelection
+  displayPrice: number
   isLaunch?: boolean
   launchLabel?: string
 }
@@ -74,7 +82,10 @@ export interface ProductDetail {
   slug: string
   categoryName: string
   mainImageUrl: string
+  displayImageUrl?: string
   mainColor?: ProductMainColor
+  defaultSelection?: ProductDefaultSelection
+  displayPrice?: number
   minPrice: number
   maxPrice: number
   colors: ProductColor[]

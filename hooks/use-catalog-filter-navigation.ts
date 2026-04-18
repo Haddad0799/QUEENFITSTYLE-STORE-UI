@@ -1,7 +1,8 @@
 'use client'
 
-import { useCallback, useMemo } from 'react'
+import { startTransition, useCallback, useMemo } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
+import { useNavigationLoading } from '@/components/navigation/navigation-loading-provider'
 import {
   buildCatalogQueryString,
   mergeCatalogQueryFilters,
@@ -22,17 +23,31 @@ export function useCatalogFilterNavigation() {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
+  const { beginNavigation } = useNavigationLoading()
 
   const currentFilters = useMemo(
     () => parseCatalogSearchParams(searchParams),
     [searchParams]
   )
+  const currentHref = useMemo(
+    () => buildCatalogHref(pathname, currentFilters),
+    [currentFilters, pathname]
+  )
 
   const navigate = useCallback(
     (nextFilters: CatalogQueryFilters) => {
-      router.push(buildCatalogHref(pathname, nextFilters), { scroll: false })
+      const nextHref = buildCatalogHref(pathname, nextFilters)
+
+      if (nextHref === currentHref) {
+        return
+      }
+
+      beginNavigation()
+      startTransition(() => {
+        router.push(nextHref, { scroll: false })
+      })
     },
-    [pathname, router]
+    [beginNavigation, currentHref, pathname, router]
   )
 
   const updateFilters = useCallback(
@@ -54,8 +69,15 @@ export function useCatalogFilterNavigation() {
   )
 
   const clearAll = useCallback(() => {
-    router.push(pathname, { scroll: false })
-  }, [pathname, router])
+    if (pathname === currentHref) {
+      return
+    }
+
+    beginNavigation()
+    startTransition(() => {
+      router.push(pathname, { scroll: false })
+    })
+  }, [beginNavigation, currentHref, pathname, router])
 
   return {
     currentFilters,
