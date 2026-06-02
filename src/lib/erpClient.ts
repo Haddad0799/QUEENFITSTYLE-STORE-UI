@@ -2,22 +2,12 @@ import 'server-only'
 
 import type { ReserveStockResponse } from '@/src/types/cart.types'
 
-/**
- * Cliente server-only para o ERP (Java) via service token (machine-to-machine).
- *
- * - As credenciais (SERVICE_CLIENT_ID / SERVICE_CLIENT_SECRET) e o JWT de serviço
- *   vivem APENAS no servidor Next.js. O browser nunca os vê.
- * - O token é mantido em cache no escopo de módulo (memória do processo do servidor).
- * - Todo acesso a /erp/** passa por aqui — nunca direto do browser.
- */
-
 const BACKEND_URL = process.env.BACKEND_URL
 const SERVICE_CLIENT_ID = process.env.SERVICE_CLIENT_ID
 const SERVICE_CLIENT_SECRET = process.env.SERVICE_CLIENT_SECRET
 
 type ServiceTokenCache = {
   accessToken: string
-  /** Date.now() + (expiresIn * 1000) - 30_000ms de margem de segurança. */
   expiresAt: number
 }
 
@@ -44,16 +34,10 @@ export class ErpClientError extends Error {
   }
 }
 
-/** Margem subtraída do tempo de expiração para evitar usar um token prestes a expirar. */
 const TOKEN_EXPIRY_MARGIN_MS = 30_000
 
-/** Cache do service token no escopo de módulo (não localStorage, não cookie, não Redis). */
 let tokenCache: ServiceTokenCache | null = null
 
-/**
- * Obtém um service token válido (ROLE_SERVICE), reaproveitando o cache em memória
- * enquanto não expirar. Privada ao módulo — nunca exportada.
- */
 async function getServiceToken(): Promise<string> {
   if (tokenCache && Date.now() < tokenCache.expiresAt) {
     return tokenCache.accessToken
@@ -86,7 +70,6 @@ async function getServiceToken(): Promise<string> {
   return tokenCache.accessToken
 }
 
-/** Cabeçalhos autenticados com o service token para chamadas ao /erp/**. */
 async function authorizedHeaders(): Promise<HeadersInit> {
   const token = await getServiceToken()
 
@@ -96,9 +79,6 @@ async function authorizedHeaders(): Promise<HeadersInit> {
   }
 }
 
-/**
- * Reserva estoque de um SKU (usuário logado ou anônimo sempre usa o service token).
- */
 export async function reserveStock(
   skuCode: string,
   quantity: number
@@ -123,7 +103,6 @@ export async function reserveStock(
   return (await response.json()) as ReserveStockResponse
 }
 
-/** Confirma a reserva (pagamento aprovado). */
 export async function confirmReservation(reservationId: string): Promise<void> {
   const response = await fetch(
     `${BACKEND_URL}/erp/skus/reservations/${reservationId}/confirm`,
@@ -142,7 +121,6 @@ export async function confirmReservation(reservationId: string): Promise<void> {
   }
 }
 
-/** Libera a reserva (carrinho expirou ou pagamento falhou). */
 export async function releaseReservation(reservationId: string): Promise<void> {
   const response = await fetch(
     `${BACKEND_URL}/erp/skus/reservations/${reservationId}/release`,
@@ -161,7 +139,6 @@ export async function releaseReservation(reservationId: string): Promise<void> {
   }
 }
 
-/** Consulta a disponibilidade de um SKU. */
 export async function getStock(skuId: number): Promise<StockResponse> {
   const response = await fetch(`${BACKEND_URL}/erp/skus/${skuId}/stock`, {
     method: 'GET',
@@ -177,4 +154,21 @@ export async function getStock(skuId: number): Promise<StockResponse> {
   }
 
   return (await response.json()) as StockResponse
+}
+
+/** Cancela um pedido pelo e-commerce (autenticado com o service token). */
+export async function cancelOrderErp(orderId: number): Promise<void> {
+  const response = await fetch(
+    `${BACKEND_URL}/erp/orders/${orderId}/cancel`,
+    {
+      method: 'POST',
+      headers: await authorizedHeaders(),
+      body: JSON.stringify({}),
+      cache: 'no-store',
+    }
+  )
+
+  if (response.status !== 200 && response.status !== 204) {
+    throw new ErpClientError('Falha ao cancelar pedido', response.status)
+  }
 }

@@ -38,8 +38,14 @@ export async function createOrder(input: CreateOrderInput) {
   return normalizeOrderResponse(response.data)
 }
 
-export async function cancelOrder(orderId: number) {
-  await ordersApi.post(`/store/orders/${orderId}/cancel`)
+export async function cancelOrder(orderId: number): Promise<void> {
+  const res = await fetch(`/api/orders/${orderId}/cancel`, {
+    method: 'POST',
+  })
+
+  if (!res.ok && res.status !== 404 && res.status !== 410) {
+    throw new Error(`Falha ao cancelar pedido: ${res.status}`)
+  }
 }
 
 export function isOrderAlreadyGone(error: unknown) {
