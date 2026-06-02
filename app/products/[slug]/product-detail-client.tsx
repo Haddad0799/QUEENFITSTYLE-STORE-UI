@@ -18,6 +18,9 @@ import {
 import { ImageGallery } from '@/components/product/image-gallery'
 import { ColorSelector } from '@/components/product/color-selector'
 import { SizeSelector } from '@/components/product/size-selector'
+import { useCart } from '@/src/hooks/useCart'
+import { getInventoryErrorMessage } from '@/src/services/inventory.service'
+
 
 interface ProductDetailClientProps {
   product: ProductDetail
@@ -36,6 +39,7 @@ export function ProductDetailClient({
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const { beginNavigation } = useNavigationLoading()
+  const { addItem, isSkuLoading } = useCart()
   const requestedColorName = searchParams.get('color')?.trim() || initialColorName
   const requestedLabel = searchParams.get('label')?.trim() || initialLabel
   const defaultColorName = product.mainColor?.name
@@ -57,6 +61,7 @@ export function ProductDetailClient({
   const [selectedSku, setSelectedSku] = useState<ProductSku | null>(
     () => resolvedSelection.selectedSku
   )
+  const [addToCartError, setAddToCartError] = useState<string | null>(null)
 
   useEffect(() => {
     setSelectedColor((currentColor) =>
@@ -158,6 +163,37 @@ export function ProductDetailClient({
   // Check stock status
   const isInStock = selectedSku?.inStock ?? false
   const stockQuantity = selectedSku?.availableStock ?? 0
+  const isAddToCartLoading = selectedSku ? isSkuLoading(selectedSku.code) : false
+
+  const handleAddToCart = useCallback(async () => {
+    if (!selectedSku || !isInStock) {
+      return
+    }
+
+    setAddToCartError(null)
+
+    try {
+      const result = await addItem({
+        skuCode: selectedSku.code,
+        name: product.name,
+        image: currentImages[0] ?? '',
+        price: selectedSku.sellingPrice,
+        quantity: 1,
+      })
+
+      if (!result.ok) {
+        setAddToCartError(result.message ?? 'Não foi possível adicionar o item.')
+      }
+    } catch (error) {
+      setAddToCartError(getInventoryErrorMessage(error))
+    }
+  }, [
+    addItem,
+    currentImages,
+    isInStock,
+    product.name,
+    selectedSku,
+  ])
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
@@ -222,19 +258,29 @@ export function ProductDetailClient({
         )}
 
         {/* Actions */}
-        <div className="flex flex-col sm:flex-row gap-3 pt-4">
-          <Button
-            size="lg"
-            className="flex-1"
-            disabled={!isInStock || !selectedSku}
-          >
-            <ShoppingBag className="mr-2 h-5 w-5" />
-            {isInStock ? 'Adicionar ao Carrinho' : 'Produto Esgotado'}
-          </Button>
-          <Button size="lg" variant="outline">
-            <Heart className="h-5 w-5" />
-            <span className="sr-only">Adicionar aos favoritos</span>
-          </Button>
+        <div className="flex flex-col gap-3 pt-4">
+          <div className="flex flex-col sm:flex-row gap-3">
+            <Button
+              size="lg"
+              className="flex-1"
+              disabled={!isInStock || !selectedSku || isAddToCartLoading}
+              onClick={() => void handleAddToCart()}
+            >
+              <ShoppingBag className="mr-2 h-5 w-5" />
+              {isInStock
+                ? isAddToCartLoading
+                  ? 'Adicionando...'
+                  : 'Adicionar ao Carrinho'
+                : 'Produto Esgotado'}
+            </Button>
+            <Button size="lg" variant="outline">
+              <Heart className="h-5 w-5" />
+              <span className="sr-only">Adicionar aos favoritos</span>
+            </Button>
+          </div>
+          {addToCartError && (
+            <p className="text-sm text-destructive">{addToCartError}</p>
+          )}
         </div>
 
         {/* Benefits */}
@@ -266,3 +312,4 @@ export function ProductDetailClient({
     </div>
   )
 }
+

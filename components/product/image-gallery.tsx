@@ -13,20 +13,21 @@ interface ImageGalleryProps {
 
 export function ImageGallery({ images, productName }: ImageGalleryProps) {
   const [selectedIndex, setSelectedIndex] = useState(0)
+  const safeImages = images.map((image) => image.trim()).filter((image) => image.length > 0)
 
   useEffect(() => {
     setSelectedIndex(0)
   }, [images])
 
   const handlePrevious = () => {
-    setSelectedIndex((prev) => (prev === 0 ? images.length - 1 : prev - 1))
+    setSelectedIndex((prev) => (prev === 0 ? safeImages.length - 1 : prev - 1))
   }
 
   const handleNext = () => {
-    setSelectedIndex((prev) => (prev === images.length - 1 ? 0 : prev + 1))
+    setSelectedIndex((prev) => (prev === safeImages.length - 1 ? 0 : prev + 1))
   }
 
-  if (images.length === 0) {
+  if (safeImages.length === 0) {
     return (
       <div className="aspect-square rounded-lg bg-muted flex items-center justify-center">
         <p className="text-muted-foreground">Sem imagem</p>
@@ -39,7 +40,7 @@ export function ImageGallery({ images, productName }: ImageGalleryProps) {
       {/* Main Image */}
       <div className="relative aspect-square overflow-hidden rounded-lg bg-muted group">
         <Image
-          src={images[selectedIndex]}
+          src={safeImages[selectedIndex]}
           alt={`${productName} - Imagem ${selectedIndex + 1}`}
           fill
           className="object-cover"
@@ -48,7 +49,7 @@ export function ImageGallery({ images, productName }: ImageGalleryProps) {
         />
         
         {/* Navigation Arrows */}
-        {images.length > 1 && (
+        {safeImages.length > 1 && (
           <>
             <Button
               variant="secondary"
@@ -73,9 +74,9 @@ export function ImageGallery({ images, productName }: ImageGalleryProps) {
       </div>
 
       {/* Thumbnails */}
-      {images.length > 1 && (
+      {safeImages.length > 1 && (
         <div className="flex gap-2 overflow-x-auto pb-2">
-          {images.map((image, index) => (
+          {safeImages.map((image, index) => (
             <button
               key={index}
               onClick={() => setSelectedIndex(index)}

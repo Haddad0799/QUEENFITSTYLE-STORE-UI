@@ -22,6 +22,7 @@ import { ColorFilter } from '@/components/product/color-filter'
 import { SizeFilter } from '@/components/product/size-filter'
 import { useCatalogFilterNavigation } from '@/hooks/use-catalog-filter-navigation'
 import { findCategorySelection } from '@/lib/category-tree'
+import { isFiniteNumber } from '@/lib/utils'
 import type { AvailableCatalogFilters, CategoryTree } from '@/lib/types'
 
 interface ProductFiltersProps {
@@ -33,6 +34,25 @@ interface ActiveFilter {
   key: string
   label: string
   clear: Record<string, string | number | null>
+}
+
+function formatPriceFilterValue(value: number | undefined, fallback: string) {
+  return isFiniteNumber(value) ? value.toLocaleString('pt-BR') : fallback
+}
+
+function toPriceInputValue(value?: number) {
+  return isFiniteNumber(value) ? value.toString() : ''
+}
+
+function parsePriceInput(value: string) {
+  const normalizedValue = value.trim().replace(',', '.')
+
+  if (!normalizedValue) {
+    return null
+  }
+
+  const parsedValue = Number(normalizedValue)
+  return isFiniteNumber(parsedValue) ? parsedValue : null
 }
 
 export function ProductFilters({ categories, availableFilters }: ProductFiltersProps) {
@@ -77,15 +97,10 @@ export function ProductFilters({ categories, availableFilters }: ProductFiltersP
       })
     }
 
-    if (
-      typeof currentFilters.minPrice === 'number' ||
-      typeof currentFilters.maxPrice === 'number'
-    ) {
+    if (isFiniteNumber(currentFilters.minPrice) || isFiniteNumber(currentFilters.maxPrice)) {
       nextFilters.push({
         key: 'price',
-        label: `Preço: R$ ${currentFilters.minPrice ?? 0} - R$ ${
-          currentFilters.maxPrice ?? 'sem limite'
-        }`,
+        label: `Preço: R$ ${formatPriceFilterValue(currentFilters.minPrice, '0')} - R$ ${formatPriceFilterValue(currentFilters.maxPrice, 'sem limite')}`,
         clear: { minPrice: null, maxPrice: null },
       })
     }
@@ -123,7 +138,10 @@ export function ProductFilters({ categories, availableFilters }: ProductFiltersP
               </Button>
             </SheetTrigger>
 
-            <SheetContent side="left" className="w-[92vw] max-w-[420px] border-r border-border/70 px-0">
+            <SheetContent
+              side="left"
+              className="w-[92vw] max-w-[420px] border-r border-border/70 px-0"
+            >
               <SheetHeader className="border-b border-border/70 px-6 pb-5 pt-6 text-left">
                 <SheetTitle className="text-xl tracking-tight">Filtrar catálogo</SheetTitle>
                 <SheetDescription>
@@ -156,7 +174,6 @@ export function ProductFilters({ categories, availableFilters }: ProductFiltersP
             </Button>
           ) : null}
         </div>
-
       </div>
 
       <aside className="hidden self-start lg:sticky lg:top-28 lg:block">
@@ -312,7 +329,10 @@ function FilterSection({
   defaultOpen?: boolean
 }) {
   return (
-    <Collapsible defaultOpen={defaultOpen} className="border-t border-black/6 pt-5 first:border-t-0 first:pt-0">
+    <Collapsible
+      defaultOpen={defaultOpen}
+      className="border-t border-black/6 pt-5 first:border-t-0 first:pt-0"
+    >
       <CollapsibleTrigger className="group flex w-full items-center justify-between gap-4 text-left">
         <div>
           <p className="text-[11px] font-medium uppercase tracking-[0.28em] text-muted-foreground">
@@ -339,34 +359,34 @@ function PriceFilter({
   onApply: (minPrice: number | null, maxPrice: number | null) => void
 }) {
   const inputId = useId()
-  const [minValue, setMinValue] = useState(minPrice?.toString() ?? '')
-  const [maxValue, setMaxValue] = useState(maxPrice?.toString() ?? '')
+  const [minValue, setMinValue] = useState(toPriceInputValue(minPrice))
+  const [maxValue, setMaxValue] = useState(toPriceInputValue(maxPrice))
 
   useEffect(() => {
-    setMinValue(minPrice?.toString() ?? '')
-    setMaxValue(maxPrice?.toString() ?? '')
+    setMinValue(toPriceInputValue(minPrice))
+    setMaxValue(toPriceInputValue(maxPrice))
   }, [minPrice, maxPrice])
 
   return (
     <form
       onSubmit={(event) => {
         event.preventDefault()
-        onApply(
-          minValue ? Number(minValue) : null,
-          maxValue ? Number(maxValue) : null
-        )
+        onApply(parsePriceInput(minValue), parsePriceInput(maxValue))
       }}
       className="space-y-4"
     >
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-2">
-          <Label htmlFor={`${inputId}-min`} className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
+          <Label
+            htmlFor={`${inputId}-min`}
+            className="text-xs uppercase tracking-[0.16em] text-muted-foreground"
+          >
             Mínimo
           </Label>
           <Input
             id={`${inputId}-min`}
             type="number"
-            inputMode="numeric"
+            inputMode="decimal"
             placeholder="R$ 0"
             value={minValue}
             onChange={(event) => setMinValue(event.target.value)}
@@ -375,13 +395,16 @@ function PriceFilter({
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor={`${inputId}-max`} className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
+          <Label
+            htmlFor={`${inputId}-max`}
+            className="text-xs uppercase tracking-[0.16em] text-muted-foreground"
+          >
             Máximo
           </Label>
           <Input
             id={`${inputId}-max`}
             type="number"
-            inputMode="numeric"
+            inputMode="decimal"
             placeholder="R$ 500"
             value={maxValue}
             onChange={(event) => setMaxValue(event.target.value)}

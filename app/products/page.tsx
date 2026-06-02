@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import type { ReactNode } from 'react'
 import { getAvailableFilters, getCategories, getProducts } from '@/lib/api'
-import { parseCatalogSearchParams } from '@/lib/catalog-query'
+import { hasActiveCatalogFilters, parseCatalogSearchParams } from '@/lib/catalog-query'
 import { ProductGrid } from '@/components/product/product-grid'
 import { ProductFilters } from '@/components/product/product-filters'
 import { ProductPagination } from '@/components/product/product-pagination'
@@ -64,14 +64,7 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
       ? availableFiltersResult.value
       : EMPTY_AVAILABLE_FILTERS
 
-  const hasActiveFilters = Boolean(
-    filters.category ||
-      filters.color ||
-      filters.label ||
-      filters.search ||
-      typeof filters.minPrice === 'number' ||
-      typeof filters.maxPrice === 'number'
-  )
+  const hasActiveFilters = hasActiveCatalogFilters(filters)
 
   return (
     <CatalogPageShell
@@ -140,7 +133,11 @@ function CatalogResults({
       <div className="mb-6 flex items-center justify-between border-b border-border pb-4">
         <p className="text-sm text-muted-foreground">
           {products.content.length > 0
-            ? `Mostrando ${products.content.length} produto${products.content.length > 1 ? 's' : ''}`
+            ? `Mostrando ${
+                products.numberOfElements ?? products.content.length
+              } de ${products.totalElements ?? products.content.length} produto${
+                (products.totalElements ?? products.content.length) > 1 ? 's' : ''
+              }`
             : 'Nenhum produto encontrado'}
         </p>
       </div>

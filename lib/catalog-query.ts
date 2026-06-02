@@ -1,4 +1,5 @@
 import type { CatalogQueryFilters, CatalogSearchParams } from './types'
+import { isFiniteNumber } from './utils'
 
 interface SearchParamsReader {
   get(name: string): string | null
@@ -73,18 +74,30 @@ export function createCatalogSearchParams(filters: CatalogQueryFilters) {
   if (filters.category) params.set('category', filters.category)
   if (filters.color) params.set('color', filters.color)
   if (filters.label) params.set('label', filters.label)
-  if (typeof filters.minPrice === 'number') params.set('minPrice', String(filters.minPrice))
-  if (typeof filters.maxPrice === 'number') params.set('maxPrice', String(filters.maxPrice))
+  if (isFiniteNumber(filters.minPrice)) params.set('minPrice', String(filters.minPrice))
+  if (isFiniteNumber(filters.maxPrice)) params.set('maxPrice', String(filters.maxPrice))
   if (filters.search) params.set('search', filters.search)
   if (filters.isLaunch) params.set('isLaunch', 'true')
-  if (typeof filters.page === 'number') params.set('page', String(filters.page))
-  if (typeof filters.pageSize === 'number') params.set('size', String(filters.pageSize))
+  if (isFiniteNumber(filters.page)) params.set('page', String(filters.page))
+  if (isFiniteNumber(filters.pageSize)) params.set('size', String(filters.pageSize))
 
   return params
 }
 
 export function buildCatalogQueryString(filters: CatalogQueryFilters) {
   return createCatalogSearchParams(filters).toString()
+}
+
+export function hasActiveCatalogFilters(filters: CatalogQueryFilters) {
+  return Boolean(
+    filters.category ||
+      filters.color ||
+      filters.label ||
+      filters.search ||
+      filters.isLaunch ||
+      isFiniteNumber(filters.minPrice) ||
+      isFiniteNumber(filters.maxPrice)
+  )
 }
 
 export function mergeCatalogQueryFilters(
@@ -108,7 +121,7 @@ export function mergeCatalogQueryFilters(
       value === null ||
       value === undefined ||
       value === '' ||
-      (typeof value === 'number' && Number.isNaN(value))
+      (typeof value === 'number' && !isFiniteNumber(value))
     ) {
       delete mutableFilters[key]
       continue

@@ -33,6 +33,12 @@ export interface ProductDefaultSelection {
   price: number
 }
 
+export interface ProductListSelection {
+  skuCode: string
+  label: string
+  price?: number
+}
+
 export interface AvailableCatalogFilters {
   colors: CatalogColorFacet[]
   sizes: string[]
@@ -43,11 +49,9 @@ export interface ProductListItem {
   slug: string
   category: Category
   subcategory?: Category
-  mainImageUrl: string
-  displayImageUrl: string
-  mainColor?: ProductMainColor
-  defaultSelection?: ProductDefaultSelection
-  displayPrice: number
+  displayImageUrl?: string
+  displayPrice?: number
+  selection?: ProductListSelection
   isLaunch?: boolean
   launchLabel?: string
 }
@@ -55,10 +59,16 @@ export interface ProductListItem {
 export interface ProductListResponse {
   content: ProductListItem[]
   totalPages: number
+  totalElements?: number
+  size?: number
   number: number
+  numberOfElements?: number
 }
 
 export interface ProductSku {
+  id?: number
+  skuId?: number
+  productId?: number
   code: string
   sizeName: string
   sellingPrice: number
@@ -77,6 +87,8 @@ export interface ProductColor {
 }
 
 export interface ProductDetail {
+  id?: number
+  productId?: number
   name: string
   description: string
   slug: string
@@ -92,6 +104,9 @@ export interface ProductDetail {
 }
 
 export interface SkuDetail {
+  id?: number
+  skuId?: number
+  productId?: number
   productName: string
   productSlug: string
   code: string

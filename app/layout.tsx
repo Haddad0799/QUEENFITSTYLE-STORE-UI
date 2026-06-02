@@ -4,6 +4,7 @@ import { Analytics } from '@vercel/analytics/next'
 import { Header } from '@/components/layout/header'
 import { Footer } from '@/components/layout/footer'
 import { NavigationLoadingProvider } from '@/components/navigation/navigation-loading-provider'
+import { CartProvider } from '@/src/context/CartProvider'
 import './globals.css'
 
 const inter = Inter({ 
@@ -46,11 +47,13 @@ export default function RootLayout({
     <html lang="pt-BR">
       <body className={`${inter.variable} ${playfair.variable} font-sans antialiased`}>
         <NavigationLoadingProvider>
-          <div className="flex min-h-screen flex-col">
-            <Header />
-            <main className="flex-1">{children}</main>
-            <Footer />
-          </div>
+          <CartProvider>
+            <div className="flex min-h-screen flex-col">
+              <Header />
+              <main className="flex-1">{children}</main>
+              <Footer />
+            </div>
+          </CartProvider>
         </NavigationLoadingProvider>
         <Analytics />
       </body>

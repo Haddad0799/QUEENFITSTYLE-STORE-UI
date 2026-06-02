@@ -27,13 +27,18 @@ import {
   launchesHref,
   MegaMenu,
 } from '@/components/layout/mega-menu'
+import { CartSheetContent } from '@/components/cart/cart-sheet'
 import type { CategoryTree } from '@/lib/types'
 import { cn } from '@/lib/utils'
+import { useCart } from '@/src/hooks/useCart'
+
+const CATALOG_CLOSE_DELAY_MS = 120
 
 export function Header() {
   const pathname = usePathname()
   const router = useRouter()
   const { beginNavigation } = useNavigationLoading()
+  const { totalItems, isHydrated, isCartOpen, setCartOpen } = useCart()
   const [isSearchOpen, setIsSearchOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [isCatalogOpen, setIsCatalogOpen] = useState(false)
@@ -42,6 +47,37 @@ export function Header() {
   const [categoryLoadState, setCategoryLoadState] =
     useState<HeaderCatalogLoadState>('loading')
   const catalogAreaRef = useRef<HTMLDivElement>(null)
+  const catalogCloseTimeoutRef = useRef<number | null>(null)
+  const cartBadgeLabel = !isHydrated
+    ? '0'
+    : totalItems > 99
+      ? '99+'
+      : totalItems.toString()
+
+  function clearCatalogCloseTimeout() {
+    if (catalogCloseTimeoutRef.current !== null) {
+      window.clearTimeout(catalogCloseTimeoutRef.current)
+      catalogCloseTimeoutRef.current = null
+    }
+  }
+
+  function openCatalogMenu() {
+    clearCatalogCloseTimeout()
+    setIsCatalogOpen(true)
+  }
+
+  function closeCatalogMenu() {
+    clearCatalogCloseTimeout()
+    setIsCatalogOpen(false)
+  }
+
+  function scheduleCatalogClose() {
+    clearCatalogCloseTimeout()
+    catalogCloseTimeoutRef.current = window.setTimeout(() => {
+      setIsCatalogOpen(false)
+      catalogCloseTimeoutRef.current = null
+    }, CATALOG_CLOSE_DELAY_MS)
+  }
 
   function handleSearch(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -54,7 +90,7 @@ export function Header() {
 
     setIsSearchOpen(false)
     setIsMobileMenuOpen(false)
-    setIsCatalogOpen(false)
+    closeCatalogMenu()
 
     const nextHref = `/products?search=${encodeURIComponent(query)}`
     const currentHref = buildNavigationSignature(
@@ -73,7 +109,7 @@ export function Header() {
   }
 
   useEffect(() => {
-    setIsCatalogOpen(false)
+    closeCatalogMenu()
     setIsMobileMenuOpen(false)
   }, [pathname])
 
@@ -99,13 +135,13 @@ export function Header() {
   useEffect(() => {
     function handlePointerDown(event: MouseEvent) {
       if (!catalogAreaRef.current?.contains(event.target as Node)) {
-        setIsCatalogOpen(false)
+        closeCatalogMenu()
       }
     }
 
     function handleEscape(event: KeyboardEvent) {
       if (event.key === 'Escape') {
-        setIsCatalogOpen(false)
+        closeCatalogMenu()
         setIsSearchOpen(false)
       }
     }
@@ -118,6 +154,13 @@ export function Header() {
       document.removeEventListener('keydown', handleEscape)
     }
   }, [])
+
+  useEffect(
+    () => () => {
+      clearCatalogCloseTimeout()
+    },
+    []
+  )
 
   return (
     <header className="sticky top-0 z-50 border-b border-border/70 bg-background/92 backdrop-blur-xl supports-[backdrop-filter]:bg-background/80">
@@ -281,7 +324,12 @@ export function Header() {
               </Sheet>
 
               <div className="hidden lg:flex lg:items-center lg:gap-10">
-                <Link href="/" className="group flex items-center">
+                <Link
+                  href="/"
+                  className="group flex items-center"
+                  onMouseEnter={closeCatalogMenu}
+                  onFocus={closeCatalogMenu}
+                >
                   <span className="text-xl font-semibold tracking-[0.32em] text-foreground transition-opacity group-hover:opacity-75">
                     QUEENFITSTYLE
                   </span>
@@ -290,9 +338,14 @@ export function Header() {
                 <nav className="flex items-center gap-8">
                   <button
                     type="button"
-                    onClick={() => setIsCatalogOpen((open) => !open)}
-                    onMouseEnter={() => setIsCatalogOpen(true)}
-                    onFocus={() => setIsCatalogOpen(true)}
+                    onClick={() => {
+                      clearCatalogCloseTimeout()
+                      setIsCatalogOpen((open) => !open)
+                    }}
+                    onMouseEnter={openCatalogMenu}
+                    onMouseLeave={scheduleCatalogClose}
+                    onFocus={openCatalogMenu}
+                    onBlur={scheduleCatalogClose}
                     className={desktopNavClass(isCatalogOpen)}
                     aria-expanded={isCatalogOpen}
                     aria-controls="catalog-mega-menu"
@@ -306,7 +359,12 @@ export function Header() {
                     />
                   </button>
 
-                  <Link href={launchesHref} className={desktopNavClass(pathname === launchesHref)}>
+                  <Link
+                    href={launchesHref}
+                    className={desktopNavClass(pathname === launchesHref)}
+                    onMouseEnter={closeCatalogMenu}
+                    onFocus={closeCatalogMenu}
+                  >
                     Lançamentos
                   </Link>
                 </nav>
@@ -331,12 +389,17 @@ export function Header() {
                 <User className="h-4.5 w-4.5" />
               </IconButton>
 
-              <IconButton label="Carrinho" className="relative">
-                <ShoppingBag className="h-4.5 w-4.5" />
-                <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-foreground px-1 text-[10px] font-semibold text-background">
-                  0
-                </span>
-              </IconButton>
+              <Sheet open={isCartOpen} onOpenChange={setCartOpen}>
+                <SheetTrigger asChild>
+                  <IconButton label="Carrinho" className="relative">
+                    <ShoppingBag className="h-4.5 w-4.5" />
+                    <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-foreground px-1 text-[10px] font-semibold text-background">
+                      {cartBadgeLabel}
+                    </span>
+                  </IconButton>
+                </SheetTrigger>
+                <CartSheetContent />
+              </Sheet>
             </div>
           </div>
 
@@ -377,8 +440,8 @@ export function Header() {
             'pointer-events-none absolute inset-x-0 top-full hidden lg:block',
             isCatalogOpen && 'pointer-events-auto'
           )}
-          onMouseEnter={() => setIsCatalogOpen(true)}
-          onMouseLeave={() => setIsCatalogOpen(false)}
+          onMouseEnter={openCatalogMenu}
+          onMouseLeave={closeCatalogMenu}
         >
           <div className="mx-auto max-w-[1440px] px-4 lg:px-6">
             <MegaMenu
@@ -388,7 +451,7 @@ export function Header() {
                 'mt-4 origin-top transition-all duration-300',
                 isCatalogOpen ? 'translate-y-0 opacity-100' : 'translate-y-3 opacity-0'
               )}
-              onNavigate={() => setIsCatalogOpen(false)}
+              onNavigate={closeCatalogMenu}
             />
           </div>
         </div>

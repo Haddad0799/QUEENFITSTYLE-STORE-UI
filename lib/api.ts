@@ -1,4 +1,5 @@
 import type {
+  Category,
   ProductListItem,
   ProductListResponse,
   ProductDetail,
@@ -7,8 +8,9 @@ import type {
   CategoryTree,
   AvailableCatalogFilters,
   CatalogColorFacet,
+  ProductListSelection,
 } from './types'
-import { buildCatalogQueryString } from './catalog-query'
+import { buildCatalogQueryString, hasActiveCatalogFilters } from './catalog-query'
 import { normalizeCategoryTree } from './category-tree-normalizer'
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
@@ -60,6 +62,161 @@ function normalizeColorFacets(value: unknown): CatalogColorFacet[] {
   )
 }
 
+function normalizeString(value: unknown) {
+  if (typeof value !== 'string') {
+    return undefined
+  }
+
+  const normalizedValue = value.trim()
+  return normalizedValue ? normalizedValue : undefined
+}
+
+function normalizeNumber(value: unknown) {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value
+  }
+
+  if (typeof value !== 'string') {
+    return undefined
+  }
+
+  const normalizedValue = value.trim()
+
+  if (!normalizedValue) {
+    return undefined
+  }
+
+  const parsedValue = Number(normalizedValue)
+  return Number.isFinite(parsedValue) ? parsedValue : undefined
+}
+
+function normalizeCategory(value: unknown): Category | undefined {
+  if (!value || typeof value !== 'object') {
+    return undefined
+  }
+
+  const name = normalizeString('name' in value ? value.name : undefined)
+  const slug = normalizeString('slug' in value ? value.slug : undefined)
+
+  if (!name || !slug) {
+    return undefined
+  }
+
+  const id = normalizeNumber('id' in value ? value.id : undefined)
+  const normalizedName = normalizeString(
+    'normalizedName' in value ? value.normalizedName : undefined
+  )
+  const productCount = normalizeNumber('productCount' in value ? value.productCount : undefined)
+
+  return {
+    ...(typeof id === 'number' ? { id } : {}),
+    name,
+    slug,
+    ...(normalizedName ? { normalizedName } : {}),
+    ...(typeof productCount === 'number' ? { productCount } : {}),
+  }
+}
+
+function normalizeProductListSelection(value: unknown): ProductListSelection | undefined {
+  if (!value || typeof value !== 'object') {
+    return undefined
+  }
+
+  const skuCode = normalizeString('skuCode' in value ? value.skuCode : undefined)
+  const label = normalizeString('label' in value ? value.label : undefined)
+  const price = normalizeNumber('price' in value ? value.price : undefined)
+
+  if (!skuCode || !label) {
+    return undefined
+  }
+
+  return {
+    skuCode,
+    label,
+    ...(typeof price === 'number' ? { price } : {}),
+  }
+}
+
+function normalizeProductListItem(value: unknown): ProductListItem | null {
+  if (!value || typeof value !== 'object') {
+    return null
+  }
+
+  const name = normalizeString('name' in value ? value.name : undefined)
+  const slug = normalizeString('slug' in value ? value.slug : undefined)
+  const category = normalizeCategory('category' in value ? value.category : undefined)
+
+  if (!name || !slug || !category) {
+    return null
+  }
+
+  const selection = normalizeProductListSelection(
+    'selection' in value ? value.selection : 'defaultSelection' in value ? value.defaultSelection : undefined
+  )
+  const displayImageUrl = normalizeString(
+    'displayImageUrl' in value
+      ? value.displayImageUrl
+      : 'mainImageUrl' in value
+        ? value.mainImageUrl
+        : undefined
+  )
+  const displayPrice =
+    normalizeNumber('displayPrice' in value ? value.displayPrice : undefined) ??
+    selection?.price
+  const subcategory = normalizeCategory('subcategory' in value ? value.subcategory : undefined)
+  const isLaunch = 'isLaunch' in value && typeof value.isLaunch === 'boolean' ? value.isLaunch : undefined
+  const launchLabel = normalizeString('launchLabel' in value ? value.launchLabel : undefined)
+
+  return {
+    name,
+    slug,
+    category,
+    ...(subcategory ? { subcategory } : {}),
+    ...(displayImageUrl ? { displayImageUrl } : {}),
+    ...(typeof displayPrice === 'number' ? { displayPrice } : {}),
+    ...(selection ? { selection } : {}),
+    ...(typeof isLaunch === 'boolean' ? { isLaunch } : {}),
+    ...(launchLabel ? { launchLabel } : {}),
+  }
+}
+
+function normalizeProductListResponse(value: unknown): ProductListResponse {
+  if (!value || typeof value !== 'object') {
+    return {
+      content: [],
+      totalPages: 0,
+      number: 0,
+    }
+  }
+
+  const rawContent = 'content' in value ? value.content : undefined
+  const content = Array.isArray(rawContent)
+    ? rawContent.flatMap((item) => {
+        const normalizedItem = normalizeProductListItem(item)
+        return normalizedItem ? [normalizedItem] : []
+      })
+    : []
+
+  const totalPages = normalizeNumber('totalPages' in value ? value.totalPages : undefined) ?? 0
+  const totalElements = normalizeNumber(
+    'totalElements' in value ? value.totalElements : undefined
+  )
+  const size = normalizeNumber('size' in value ? value.size : undefined)
+  const number = normalizeNumber('number' in value ? value.number : undefined) ?? 0
+  const numberOfElements = normalizeNumber(
+    'numberOfElements' in value ? value.numberOfElements : undefined
+  )
+
+  return {
+    content,
+    totalPages,
+    number,
+    ...(typeof totalElements === 'number' ? { totalElements } : {}),
+    ...(typeof size === 'number' ? { size } : {}),
+    ...(typeof numberOfElements === 'number' ? { numberOfElements } : {}),
+  }
+}
+
 async function fetchCategoryResponse(): Promise<Response> {
   return fetch(CATEGORY_ENDPOINT, {
     next: { tags: ['catalog-categories'], revalidate: 300 }
@@ -71,26 +228,41 @@ function buildRequestUrl(endpoint: string, filters: CatalogQueryFilters = {}) {
   return `${endpoint}${queryString ? `?${queryString}` : ''}`
 }
 
+function buildCatalogFetchOptions(tag: string, filters: CatalogQueryFilters = {}) {
+  if (hasActiveCatalogFilters(filters)) {
+    return {
+      cache: 'no-store' as const,
+    }
+  }
+
+  return {
+    next: { tags: [tag], revalidate: 300 },
+  }
+}
+
 export async function getProducts(
   filters: CatalogQueryFilters = {}
 ): Promise<ProductListResponse> {
-  const response = await fetch(buildRequestUrl(PRODUCTS_ENDPOINT, filters), {
-    next: { tags: ['catalog-products'], revalidate: 300 }
-  })
+  const response = await fetch(
+    buildRequestUrl(PRODUCTS_ENDPOINT, filters),
+    buildCatalogFetchOptions('catalog-products', filters)
+  )
 
   if (!response.ok) {
     throw new Error('Falha ao carregar produtos')
   }
 
-  return response.json()
+  const data = await response.json()
+  return normalizeProductListResponse(data)
 }
 
 export async function getAvailableFilters(
   filters: CatalogQueryFilters = {}
 ): Promise<AvailableCatalogFilters> {
-  const response = await fetch(buildRequestUrl(FILTERS_ENDPOINT, filters), {
-    next: { tags: ['catalog-filters'], revalidate: 300 }
-  })
+  const response = await fetch(
+    buildRequestUrl(FILTERS_ENDPOINT, filters),
+    buildCatalogFetchOptions('catalog-filters', filters)
+  )
 
   if (!response.ok) {
     throw new Error('Falha ao carregar filtros disponíveis')

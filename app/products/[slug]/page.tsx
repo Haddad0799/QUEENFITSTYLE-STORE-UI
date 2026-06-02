@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import { getProductBySlug, getCategories, formatPrice } from '@/lib/api'
 import { ProductDetailSkeleton } from '@/components/product/product-skeleton'
+import { isFiniteNumber } from '@/lib/utils'
 import { ProductDetailClient } from './product-detail-client'
 
 interface ProductPageSearchParams {
@@ -96,13 +97,15 @@ async function ProductDetail({
 
   // Get price range display
   const priceDisplay =
-    typeof product.defaultSelection?.price === 'number'
+    isFiniteNumber(product.defaultSelection?.price)
       ? formatPrice(product.defaultSelection.price)
-      : typeof product.displayPrice === 'number'
+      : isFiniteNumber(product.displayPrice)
         ? formatPrice(product.displayPrice)
-        : product.minPrice === product.maxPrice
+        : isFiniteNumber(product.minPrice) && isFiniteNumber(product.maxPrice) && product.minPrice === product.maxPrice
           ? formatPrice(product.minPrice)
-          : `${formatPrice(product.minPrice)} - ${formatPrice(product.maxPrice)}`
+          : isFiniteNumber(product.minPrice) && isFiniteNumber(product.maxPrice)
+            ? `${formatPrice(product.minPrice)} - ${formatPrice(product.maxPrice)}`
+            : 'Preço indisponível'
 
   return (
     <>

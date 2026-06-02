@@ -3,6 +3,7 @@ import Image from 'next/image'
 import type { ProductListItem } from '@/lib/types'
 import { formatPrice } from '@/lib/api'
 import { getSelectionValue } from '@/lib/product-selection'
+import { isFiniteNumber } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 
 interface ProductCardProps {
@@ -35,11 +36,15 @@ function buildProductHref(
 }
 
 export function ProductCard({ product, activeColor, activeLabel }: ProductCardProps) {
-  const productImageUrl = product.displayImageUrl
-  const navigationColor = getSelectionValue(activeColor) ?? getSelectionValue(product.mainColor?.name)
-  const navigationLabel =
-    getSelectionValue(activeLabel) ?? getSelectionValue(product.defaultSelection?.label)
-  const categoryName = product.category.name
+  const productImageUrl = getSelectionValue(product.displayImageUrl)
+  const navigationColor = getSelectionValue(activeColor)
+  const navigationLabel = getSelectionValue(activeLabel) ?? getSelectionValue(product.selection?.label)
+  const categoryName = product.subcategory?.name ?? product.category.name
+  const displayPrice = isFiniteNumber(product.displayPrice)
+    ? product.displayPrice
+    : isFiniteNumber(product.selection?.price)
+      ? product.selection.price
+      : null
 
   return (
     <Link
@@ -50,13 +55,19 @@ export function ProductCard({ product, activeColor, activeLabel }: ProductCardPr
       className="group block"
     >
       <div className="relative aspect-[4/5] overflow-hidden rounded-sm bg-[#f3f2ef]">
-        <Image
-          src={productImageUrl}
-          alt={product.name}
-          fill
-          className="object-cover transition-transform duration-500 group-hover:scale-[1.02]"
-          sizes="(max-width: 640px) 100vw, (max-width: 1280px) 50vw, 33vw"
-        />
+        {productImageUrl ? (
+          <Image
+            src={productImageUrl}
+            alt={product.name}
+            fill
+            className="object-cover transition-transform duration-500 group-hover:scale-[1.02]"
+            sizes="(max-width: 640px) 100vw, (max-width: 1280px) 50vw, 33vw"
+          />
+        ) : (
+          <div className="flex h-full items-center justify-center px-6 text-center text-sm text-muted-foreground">
+            Imagem indisponível
+          </div>
+        )}
         {product.isLaunch ? (
           <Badge className="absolute left-3 top-3 rounded-full bg-white/96 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.24em] text-foreground shadow-sm">
             {product.launchLabel ?? 'NOVO'}
@@ -72,7 +83,7 @@ export function ProductCard({ product, activeColor, activeLabel }: ProductCardPr
           {product.name}
         </h3>
         <p className="text-sm font-semibold text-foreground">
-          {formatPrice(product.displayPrice)}
+          {displayPrice === null ? 'Preço indisponível' : formatPrice(displayPrice)}
         </p>
       </div>
     </Link>
