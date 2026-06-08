@@ -1,4 +1,8 @@
-import type { PendingOrder, PendingOrderItem } from '@/src/types/order.types'
+import type {
+  DeliveryAddress,
+  PendingOrder,
+  PendingOrderItem,
+} from '@/src/types/order.types'
 
 const PENDING_ORDER_STORAGE_KEY = 'queenfitstyle:pending-order:v1'
 const PENDING_ORDER_CHANNEL_NAME = 'queenfitstyle:pending-order'
@@ -24,6 +28,18 @@ function isPendingOrderItem(value: unknown): value is PendingOrderItem {
   )
 }
 
+function isDeliveryAddress(value: unknown): value is DeliveryAddress {
+  if (!value || typeof value !== 'object') return false
+  const address = value as Partial<DeliveryAddress>
+  return (
+    typeof address.cep === 'string' &&
+    typeof address.street === 'string' &&
+    typeof address.number === 'string' &&
+    typeof address.neighborhood === 'string' &&
+    (address.complement === undefined || typeof address.complement === 'string')
+  )
+}
+
 function isPendingOrder(value: unknown): value is PendingOrder {
   if (!value || typeof value !== 'object') return false
   const order = value as Partial<PendingOrder>
@@ -37,6 +53,7 @@ function isPendingOrder(value: unknown): value is PendingOrder {
     typeof customer.name === 'string' &&
     typeof customer.phone === 'string' &&
     typeof customer.city === 'string' &&
+    isDeliveryAddress(order.deliveryAddress) &&
     Array.isArray(order.items) &&
     order.items.every(isPendingOrderItem) &&
     typeof order.subtotal === 'number' &&

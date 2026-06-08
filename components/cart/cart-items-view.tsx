@@ -1,7 +1,7 @@
 'use client'
 
 import Image from 'next/image'
-import { ArrowRight, Minus, Plus, Trash2 } from 'lucide-react'
+import { AlertCircle, ArrowRight, Minus, Plus, Trash2, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
@@ -10,6 +10,7 @@ import { useCart } from '@/src/hooks/useCart'
 import {
   formatReservationTimeLeft,
   getReservationTimeLeftMs,
+  isDraftReservationId,
 } from '@/src/utils/reservation.utils'
 
 export function CartItemsView() {
@@ -21,6 +22,8 @@ export function CartItemsView() {
     removeItem,
     goToCheckout,
     isSkuLoading,
+    orderCancelledNotice,
+    dismissOrderCancelledNotice,
   } = useCart()
   const [now, setNow] = useState(Date.now())
   const [cartError, setCartError] = useState<string | null>(null)
@@ -53,6 +56,27 @@ export function CartItemsView() {
 
   return (
     <>
+      {orderCancelledNotice && (
+        <div className="flex items-start gap-2 border-b border-amber-200 bg-amber-50 px-6 py-3">
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
+          <div className="flex-1 text-sm text-amber-800">
+            <p className="font-medium">Pedido cancelado</p>
+            <p className="mt-0.5 leading-5">
+              Seu pedido foi cancelado. Os itens continuam aqui, mas as reservas
+              foram liberadas — revise o carrinho e finalize novamente.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={dismissOrderCancelledNotice}
+            className="-mr-1 shrink-0 rounded-full p-1 text-amber-700 transition-colors hover:bg-amber-100"
+          >
+            <X className="h-4 w-4" />
+            <span className="sr-only">Dispensar aviso</span>
+          </button>
+        </div>
+      )}
+
       {cartError && (
         <div className="border-b border-amber-200 bg-amber-50 px-6 py-3">
           <p className="text-sm text-amber-800">{cartError}</p>
@@ -71,6 +95,7 @@ export function CartItemsView() {
           <div className="space-y-5">
             {items.map((item) => {
               const isLoading = isSkuLoading(item.skuCode)
+              const isDraft = isDraftReservationId(item.reservationId)
               const timeLeftMs = getReservationTimeLeftMs(item, now)
 
               return (
@@ -158,7 +183,9 @@ export function CartItemsView() {
                       <p className="mt-3 text-xs font-medium text-muted-foreground">
                         {isLoading
                           ? 'Sincronizando reserva...'
-                          : `Reserva expira em ${formatReservationTimeLeft(timeLeftMs)}`}
+                          : isDraft
+                            ? 'Sem reserva ativa — reservaremos ao finalizar'
+                            : `Reserva expira em ${formatReservationTimeLeft(timeLeftMs)}`}
                       </p>
                     </div>
                   </div>

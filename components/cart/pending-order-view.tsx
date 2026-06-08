@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import {
   AlertCircle,
   Check,
@@ -24,18 +25,59 @@ import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { formatPrice } from '@/lib/api'
 import { useCart } from '@/src/hooks/useCart'
+import { useOrderStatusPolling } from '@/hooks/use-order-status-polling'
 import {
   copyToClipboard,
   getWhatsAppMessage,
 } from '@/src/utils/whatsapp.utils'
 
 export function PendingOrderView() {
+  const router = useRouter()
   const {
     pendingOrder,
     openWhatsAppAndComplete,
     cancelPendingOrder,
     isCancellingOrder,
+    markOrderConfirmedLocally,
+    markOrderCancelledLocally,
   } = useCart()
+  const orderId = pendingOrder?.orderId ?? null
+
+  // Acompanha o status do pedido enquanto este modal estiver montado. O hook faz
+  // um backoff curto logo após a criação (captando confirmações rápidas durante
+  // a conversa no WhatsApp) e depois só re-checa quando a aba recebe foco — o
+  // aviso definitivo de confirmação chega pelo próprio WhatsApp.
+  // Para migrar para SSE no futuro, basta trocar a importação do hook acima.
+  useOrderStatusPolling({
+    orderId,
+    enabled: orderId !== null,
+    onStatusChange: (status) => {
+      // PAID = pagamento confirmado pela vendedora no ERP. DELIVERED implica
+      // que já passou por PAID (caso a cliente só volte à aba bem depois).
+      if (status === 'PAID' || status === 'DELIVERED') {
+        markOrderConfirmedLocally()
+        router.push(
+          orderId !== null
+            ? `/pedido/confirmado?pedido=${orderId}`
+            : '/pedido/confirmado'
+        )
+        return
+      }
+
+      if (status === 'RETURNED') {
+        // Pedido foi pago e depois devolvido no ERP — as reservas já foram
+        // consumidas/repostas do lado de lá. Só limpamos o carrinho local (sem
+        // tela de sucesso); senão o item devolvido fica preso no carrinho.
+        markOrderConfirmedLocally()
+        return
+      }
+
+      if (status === 'CANCELLED' || status === 'EXPIRED') {
+        // Não limpa o carrinho: o cliente pode tentar de novo (reservas serão refeitas).
+        markOrderCancelledLocally()
+      }
+    },
+  })
   const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle')
   const [cancelError, setCancelError] = useState<string | null>(null)
   const [isCancelDialogOpen, setCancelDialogOpen] = useState(false)
@@ -146,7 +188,7 @@ export function PendingOrderView() {
         <Button
           type="button"
           size="lg"
-          onClick={openWhatsAppAndComplete}
+          onClick={() => openWhatsAppAndComplete()}
           className="w-full bg-emerald-600 text-white hover:bg-emerald-600/90"
         >
           <MessageCircle className="h-5 w-5" />

@@ -15,6 +15,11 @@ export function buildWhatsAppFallbackMessage(order: PendingOrder): string {
     .map((item) => `• ${item.quantity}× ${item.name}`)
     .join('\n')
 
+  const { cep, street, number, complement, neighborhood } = order.deliveryAddress
+  const streetLine = complement
+    ? `${street}, ${number} - ${complement}`
+    : `${street}, ${number}`
+
   const lines = [
     `Olá! Acabei de fazer o pedido #${order.orderId} pelo site.`,
     '',
@@ -24,6 +29,9 @@ export function buildWhatsAppFallbackMessage(order: PendingOrder): string {
     '',
     `Nome: ${order.customer.name}`,
     `Cidade: ${order.customer.city}`,
+    `Endereço: ${streetLine}`,
+    `Bairro: ${neighborhood}`,
+    `CEP: ${cep}`,
   ]
 
   if (order.notes) {

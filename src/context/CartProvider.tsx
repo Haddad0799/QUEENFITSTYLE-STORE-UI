@@ -50,8 +50,10 @@ import type {
 } from '@/src/types/cart.types'
 import type { PendingOrder } from '@/src/types/order.types'
 import {
+  createDraftReservationId,
   createPendingReservationId,
   createReservationWindow,
+  isDraftReservationId,
   isPendingReservationId,
   splitCartItemsByExpiration,
 } from '@/src/utils/reservation.utils'
@@ -104,6 +106,7 @@ function CartStateProvider({ children }: { children: ReactNode }) {
   const [isCartOpen, setCartOpenState] = useState(false)
   const [step, setStep] = useState<CartStep>('cart')
   const [pendingOrder, setPendingOrder] = useState<PendingOrder | null>(null)
+  const [orderCancelledNotice, setOrderCancelledNotice] = useState(false)
   const [loadingSkuCodes, setLoadingSkuCodes] = useState<string[]>([])
   const [loadingReservationIds, setLoadingReservationIds] = useState<string[]>([])
   const itemsRef = useRef<CartItem[]>(items)
@@ -193,7 +196,9 @@ function CartStateProvider({ children }: { children: ReactNode }) {
   )
 
   const releaseReservationSafely = useCallback(async (reservationId: string) => {
-    if (isPendingReservationId(reservationId)) {
+    // Ids "pending" (otimista, em voo) e "draft" (pós-cancelamento) não têm
+    // reserva no ERP — não há nada para liberar.
+    if (isPendingReservationId(reservationId) || isDraftReservationId(reservationId)) {
       return
     }
 
@@ -225,6 +230,15 @@ function CartStateProvider({ children }: { children: ReactNode }) {
 
   const removeExpiredItems = useCallback(
     (options: { notify?: boolean } = {}) => {
+      // Skip while an operation is in flight: optimistic items carry a pending
+      // reservationId that splitCartItemsByExpiration classifies as "expired".
+      // Removing/notifying here would flash a false "Reserva expirada" toast for
+      // an item that is simply still being reserved. The next tick re-checks
+      // once the real reservation lands.
+      if (activeOperationsRef.current > 0) {
+        return
+      }
+
       const { valid, expired } = splitCartItemsByExpiration(itemsRef.current)
 
       if (expired.length === 0) {
@@ -369,20 +383,22 @@ function CartStateProvider({ children }: { children: ReactNode }) {
       const normalizedQuantity = Math.max(0, Math.floor(nextQuantity))
 
       if (normalizedQuantity === 0) {
+        // Remoção é best-effort em relação ao ERP. Se a liberação falhar — por
+        // exemplo, um item já no carrinho cujo pedido foi cancelado antes desta
+        // versão, deixando a reserva num estado terminal que não responde 404/410
+        // — ainda assim removemos localmente. Caso contrário o item ficaria preso
+        // no carrinho para sempre. Uma reserva que porventura siga viva expira
+        // sozinha pelo TTL do ERP.
         try {
           await releaseReservationSafely(currentItem.reservationId)
-          replaceItems(latestItems.filter((item) => item.skuCode !== currentItem.skuCode))
+        } catch {
+          // ignora: a remoção local acontece de qualquer forma
+        }
 
-          return {
-            ok: true,
-          }
-        } catch (error) {
-          replaceItems(latestItems)
+        replaceItems(latestItems.filter((item) => item.skuCode !== currentItem.skuCode))
 
-          return {
-            ok: false,
-            message: getInventoryErrorMessage(error),
-          }
+        return {
+          ok: true,
         }
       }
 
@@ -724,13 +740,54 @@ function CartStateProvider({ children }: { children: ReactNode }) {
       })
 
       try {
+        // Rascunhos (pedido anterior cancelado pelo ERP) não têm reserva viva.
+        // Refazemos a reserva de cada um antes de criar o pedido. Os que não
+        // puderem ser reservados (sem estoque) permanecem como rascunho e
+        // abortam o envio para o cliente revisar o carrinho.
+        const reservedItems: CartItem[] = []
+        const unavailableSkus: string[] = []
+
+        for (const item of previousItems) {
+          if (!isDraftReservationId(item.reservationId)) {
+            reservedItems.push(item)
+            continue
+          }
+
+          try {
+            const reservation = await reserveStock(item.skuCode, item.quantity)
+            reservedItems.push({
+              ...item,
+              quantity: reservation.quantity,
+              reservationId: reservation.reservationId,
+              ...createReservationWindow(),
+            })
+          } catch {
+            reservedItems.push(item)
+            unavailableSkus.push(item.skuCode)
+          }
+        }
+
+        // Persiste o resultado: reservas refeitas deixam de ser rascunho; os
+        // indisponíveis seguem como rascunho. Vale tanto no sucesso quanto na falha.
+        replaceItems(reservedItems)
+
+        if (unavailableSkus.length > 0) {
+          setStep('cart')
+          return {
+            ok: false,
+            message:
+              'Alguns itens não estão mais disponíveis no estoque. Revise o carrinho e tente novamente.',
+          }
+        }
+
         const order = await createOrder({
           customer: input.customer,
-          reservations: previousItems.map((item) => item.reservationId),
+          reservations: reservedItems.map((item) => item.reservationId),
+          deliveryAddress: input.deliveryAddress,
           notes: input.notes,
         })
 
-        const orderSubtotal = previousItems.reduce(
+        const orderSubtotal = reservedItems.reduce(
           (total, item) => total + item.price * item.quantity,
           0
         )
@@ -740,8 +797,9 @@ function CartStateProvider({ children }: { children: ReactNode }) {
           status: order.status,
           whatsappUrl: order.whatsappUrl,
           customer: input.customer,
+          deliveryAddress: input.deliveryAddress,
           notes: input.notes,
-          items: previousItems.map((item) => ({
+          items: reservedItems.map((item) => ({
             skuCode: item.skuCode,
             name: item.name,
             image: item.image,
@@ -759,6 +817,7 @@ function CartStateProvider({ children }: { children: ReactNode }) {
         // confirm via "Abrir WhatsApp" or cancel the order.
         savePendingOrder(nextPendingOrder, ownerIdRef.current)
         applyPendingOrder(nextPendingOrder)
+        setOrderCancelledNotice(false)
         setStep('pending-order')
 
         return { ok: true, order }
@@ -784,26 +843,74 @@ function CartStateProvider({ children }: { children: ReactNode }) {
     setStep('cart')
   }, [applyPendingOrder, replaceItems])
 
-  const openWhatsAppAndComplete = useCallback(() => {
-    const pending = pendingOrderRef.current
-    if (!pending) return
-
-    const targetUrl = pending.whatsappUrl
-
-    // Clean up before navigating. If the new tab is blocked and we fall back
-    // to a same-tab navigation, the cleanup must have already happened —
-    // otherwise the cart would survive the redirect and a refresh of the
-    // store would show stale local state.
+  const markOrderConfirmedLocally = useCallback(() => {
+    // O ERP confirmou o pedido (reservas já viraram venda). Limpamos carrinho e
+    // pedido pendente localmente e fechamos o drawer — a navegação para a tela
+    // de sucesso fica a cargo de quem observa o status.
     finalizePendingOrderLocally()
+    setOrderCancelledNotice(false)
     setCartOpenState(false)
-
-    if (typeof window === 'undefined') return
-
-    const popup = window.open(targetUrl, '_blank', 'noopener,noreferrer')
-    if (!popup) {
-      window.location.href = targetUrl
-    }
   }, [finalizePendingOrderLocally])
+
+  const markOrderCancelledLocally = useCallback(() => {
+    // O ERP cancelou/expirou o pedido — NÃO chamamos o cancel de novo. As reservas
+    // no ERP já foram liberadas, então os reservationId atuais estão mortos: tentar
+    // liberá-los de novo falharia (não retornam 404/410) e prenderia o item no
+    // carrinho. Convertemos cada item em "rascunho" (sem reserva ativa). Assim o
+    // cliente pode remover/editar sem chamar o ERP, e a reserva é refeita quando
+    // ele mexer na quantidade ou finalizar novamente.
+    clearPendingOrder(ownerIdRef.current)
+    applyPendingOrder(null)
+    replaceItems(
+      itemsRef.current.map((item) => ({
+        ...item,
+        reservationId: createDraftReservationId(item.skuCode),
+      }))
+    )
+    setStep('cart')
+    setOrderCancelledNotice(true)
+    setCartOpenState(true)
+  }, [applyPendingOrder, replaceItems])
+
+  const dismissOrderCancelledNotice = useCallback(() => {
+    setOrderCancelledNotice(false)
+  }, [])
+
+  const openWhatsAppAndComplete = useCallback(
+    (options: { allowSameTabFallback?: boolean } = {}): boolean => {
+      // allowSameTabFallback=true (clique no botão): se o popup for bloqueado,
+      // navegamos na mesma aba. allowSameTabFallback=false (auto-abertura logo
+      // após criar o pedido): se for bloqueado, NÃO forçamos a navegação —
+      // mantemos o pedido pendente para o botão "Abrir WhatsApp" ser o fallback.
+      const { allowSameTabFallback = true } = options
+      const pending = pendingOrderRef.current
+      if (!pending) return false
+
+      if (typeof window === 'undefined') return false
+
+      const targetUrl = pending.whatsappUrl
+      const popup = window.open(targetUrl, '_blank', 'noopener,noreferrer')
+
+      if (!popup && !allowSameTabFallback) {
+        // Auto-abertura bloqueada (sem gesto do usuário). Deixa tudo como está.
+        return false
+      }
+
+      // Clean up before navigating. If the new tab is blocked and we fall back
+      // to a same-tab navigation, the cleanup must have already happened —
+      // otherwise the cart would survive the redirect and a refresh of the
+      // store would show stale local state.
+      finalizePendingOrderLocally()
+      setCartOpenState(false)
+
+      if (!popup) {
+        window.location.href = targetUrl
+      }
+
+      return true
+    },
+    [finalizePendingOrderLocally]
+  )
 
   const cancelPendingOrderMutation = useMutation({
     mutationFn: async (): Promise<CancelPendingOrderResult> => {
@@ -862,6 +969,10 @@ function CartStateProvider({ children }: { children: ReactNode }) {
       submitOrder: (input) => submitOrderMutation.mutateAsync(input),
       openWhatsAppAndComplete,
       cancelPendingOrder: () => cancelPendingOrderMutation.mutateAsync(),
+      markOrderConfirmedLocally,
+      markOrderCancelledLocally,
+      orderCancelledNotice,
+      dismissOrderCancelledNotice,
       isSkuLoading: (skuCode) => loadingSkuCodes.includes(skuCode),
       isReservationLoading: (reservationId) =>
         loadingReservationIds.includes(reservationId),
@@ -870,13 +981,17 @@ function CartStateProvider({ children }: { children: ReactNode }) {
       addItemMutation,
       cancelPendingOrderMutation,
       decreaseQuantityMutation,
+      dismissOrderCancelledNotice,
       increaseQuantityMutation,
       isHydrated,
       isCartOpen,
       items,
       loadingReservationIds,
       loadingSkuCodes,
+      markOrderCancelledLocally,
+      markOrderConfirmedLocally,
       openWhatsAppAndComplete,
+      orderCancelledNotice,
       pendingOrder,
       removeItemMutation,
       setCartOpen,

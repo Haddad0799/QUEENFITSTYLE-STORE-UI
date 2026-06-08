@@ -35,6 +35,22 @@ export async function POST(req: NextRequest) {
       )
     }
 
+    console.error('[cart/reserve] falha ao reservar estoque', {
+      skuCode,
+      quantity,
+      status: error instanceof ErpClientError ? error.statusCode : undefined,
+      error,
+    })
+
+    // Repassa o status real do ERP (ex.: 401/403 de auth) em vez de mascarar
+    // tudo como 503 — facilita o diagnóstico no cliente e nos logs.
+    if (error instanceof ErpClientError) {
+      return NextResponse.json(
+        { error: 'Falha ao reservar estoque' },
+        { status: error.statusCode }
+      )
+    }
+
     return NextResponse.json({ error: 'Serviço indisponível' }, { status: 503 })
   }
 }

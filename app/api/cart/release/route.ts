@@ -43,6 +43,19 @@ export async function POST(req: NextRequest) {
       )
     }
 
+    console.error('[cart/release] falha ao liberar reserva', {
+      reservationId,
+      status: error instanceof ErpClientError ? error.statusCode : undefined,
+      error,
+    })
+
+    if (error instanceof ErpClientError) {
+      return NextResponse.json(
+        { error: 'Falha ao liberar a reserva' },
+        { status: error.statusCode }
+      )
+    }
+
     return NextResponse.json({ error: 'Serviço indisponível' }, { status: 503 })
   }
 }

@@ -1,6 +1,11 @@
 import 'server-only'
 
 import type { ReserveStockResponse } from '@/src/types/cart.types'
+import type {
+  CreateOrderInput,
+  CreateOrderResponse,
+  OrderStatus,
+} from '@/src/types/order.types'
 
 const BACKEND_URL = process.env.BACKEND_URL
 const SERVICE_CLIENT_ID = process.env.SERVICE_CLIENT_ID
@@ -27,7 +32,8 @@ export type StockResponse = {
 export class ErpClientError extends Error {
   constructor(
     message: string,
-    public readonly statusCode: number
+    public readonly statusCode: number,
+    public readonly body?: unknown
   ) {
     super(message)
     this.name = 'ErpClientError'
@@ -154,6 +160,56 @@ export async function getStock(skuId: number): Promise<StockResponse> {
   }
 
   return (await response.json()) as StockResponse
+}
+
+export async function createStoreOrder(
+  input: CreateOrderInput
+): Promise<CreateOrderResponse> {
+  const response = await fetch(`${BACKEND_URL}/store/orders`, {
+    method: 'POST',
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(input),
+    cache: 'no-store',
+  })
+
+  const body: unknown = await response.json().catch(() => null)
+
+  if (!response.ok) {
+    throw new ErpClientError(
+      'Falha ao criar pedido na loja.',
+      response.status,
+      body
+    )
+  }
+
+  return body as CreateOrderResponse
+}
+
+/**
+ * Consulta o status atual de um pedido no ERP (autenticado com o service token).
+ *
+ * Usa o endpoint existente GET /erp/orders/{orderId}, que retorna o
+ * OrderDetailsDTO completo — só aproveitamos o campo `status`.
+ */
+export async function getOrderStatusErp(orderId: number): Promise<OrderStatus> {
+  const response = await fetch(`${BACKEND_URL}/erp/orders/${orderId}`, {
+    method: 'GET',
+    headers: await authorizedHeaders(),
+    cache: 'no-store',
+  })
+
+  if (response.status !== 200) {
+    throw new ErpClientError(
+      `Falha ao consultar status do pedido ${orderId}.`,
+      response.status
+    )
+  }
+
+  const data = (await response.json()) as { status: OrderStatus }
+  return data.status
 }
 
 /** Cancela um pedido pelo e-commerce (autenticado com o service token). */

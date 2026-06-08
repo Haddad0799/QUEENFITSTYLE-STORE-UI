@@ -1,5 +1,6 @@
 import type {
   CreateOrderResponse,
+  DeliveryAddress,
   OrderCustomerInput,
   PendingOrder,
 } from '@/src/types/order.types'
@@ -38,6 +39,7 @@ export type CartStep = 'cart' | 'checkout' | 'pending-order'
 
 export type SubmitOrderInput = {
   customer: OrderCustomerInput
+  deliveryAddress: DeliveryAddress
   notes?: string
 }
 
@@ -70,8 +72,14 @@ export type CartContextValue = {
   decreaseQuantity: (skuCode: string) => Promise<CartOperationResult>
   removeItem: (skuCode: string) => Promise<CartOperationResult>
   submitOrder: (input: SubmitOrderInput) => Promise<SubmitOrderResult>
-  openWhatsAppAndComplete: () => void
+  openWhatsAppAndComplete: (options?: { allowSameTabFallback?: boolean }) => boolean
   cancelPendingOrder: () => Promise<CancelPendingOrderResult>
+  // Resoluções locais disparadas pelo acompanhamento de status do pedido (polling/SSE).
+  // Não chamam o backend — apenas refletem no frontend o que o ERP já decidiu.
+  markOrderConfirmedLocally: () => void
+  markOrderCancelledLocally: () => void
+  orderCancelledNotice: boolean
+  dismissOrderCancelledNotice: () => void
   isSkuLoading: (skuCode: string) => boolean
   isReservationLoading: (reservationId: string) => boolean
 }

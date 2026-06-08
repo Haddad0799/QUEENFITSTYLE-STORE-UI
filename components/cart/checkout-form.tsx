@@ -3,49 +3,32 @@
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
 import { AlertCircle, ArrowLeft, Loader2, Send } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { formatPrice } from '@/lib/api'
-import { cn } from '@/lib/utils'
 import { useCart } from '@/src/hooks/useCart'
+import { formatPhoneMask, stripPhoneDigits } from '@/src/utils/phone-mask'
+import { stripCepDigits } from '@/src/utils/cep-mask'
 import {
-  formatPhoneMask,
-  isValidBrazilianPhone,
-  stripPhoneDigits,
-} from '@/src/utils/phone-mask'
-
-const checkoutSchema = z.object({
-  name: z
-    .string()
-    .trim()
-    .min(2, 'Informe seu nome completo.')
-    .max(80, 'Nome muito longo.'),
-  phone: z
-    .string()
-    .trim()
-    .refine(isValidBrazilianPhone, 'Informe um WhatsApp válido com DDD.'),
-  city: z
-    .string()
-    .trim()
-    .min(2, 'Informe sua cidade ou bairro.')
-    .max(80, 'Cidade muito longa.'),
-  notes: z
-    .string()
-    .trim()
-    .max(500, 'Observação muito longa.')
-    .optional()
-    .or(z.literal('')),
-})
-
-type CheckoutFormValues = z.infer<typeof checkoutSchema>
+  checkoutSchema,
+  DELIVERY_CITY,
+  type CheckoutFormValues,
+} from '@/components/cart/checkout-schema'
+import { FormField } from '@/components/cart/form-field'
+import { DeliveryAddressForm } from '@/components/cart/delivery-address-form'
 
 export function CheckoutForm() {
-  const { items, subtotal, totalItems, backToCart, submitOrder, isSubmittingOrder } =
-    useCart()
+  const {
+    items,
+    subtotal,
+    totalItems,
+    backToCart,
+    submitOrder,
+    isSubmittingOrder,
+    openWhatsAppAndComplete,
+  } = useCart()
   const [serverError, setServerError] = useState<string | null>(null)
 
   const {
@@ -57,7 +40,16 @@ export function CheckoutForm() {
   } = useForm<CheckoutFormValues>({
     resolver: zodResolver(checkoutSchema),
     mode: 'onBlur',
-    defaultValues: { name: '', phone: '', city: '', notes: '' },
+    defaultValues: {
+      name: '',
+      phone: '',
+      cep: '',
+      street: '',
+      number: '',
+      complement: '',
+      neighborhood: '',
+      notes: '',
+    },
   })
 
   const phoneValue = watch('phone')
@@ -69,7 +61,14 @@ export function CheckoutForm() {
       customer: {
         name: values.name,
         phone: stripPhoneDigits(values.phone),
-        city: values.city,
+        city: DELIVERY_CITY,
+      },
+      deliveryAddress: {
+        cep: stripCepDigits(values.cep),
+        street: values.street.trim(),
+        number: values.number.trim(),
+        complement: values.complement?.trim() ? values.complement.trim() : undefined,
+        neighborhood: values.neighborhood.trim(),
       },
       notes: values.notes?.trim() ? values.notes.trim() : undefined,
     })
@@ -79,9 +78,13 @@ export function CheckoutForm() {
       return
     }
 
-    // The CartProvider transitions to the 'pending-order' step on success.
-    // Do NOT redirect from here — keeping the user on the recovery screen is
-    // the whole point of the resilient flow.
+    // Auto-abertura otimista: aproveitamos a ativação transitória do clique em
+    // "Confirmar pedido" para já abrir o WhatsApp numa nova aba. Se o navegador
+    // bloquear (comum no iOS/Safari por causa do await acima), NÃO forçamos a
+    // navegação — o CartProvider já mudou para o step 'pending-order', então o
+    // usuário fica na tela de recuperação com o botão "Abrir WhatsApp" como
+    // fallback. Mantém a rede de segurança do fluxo resiliente intacta.
+    openWhatsAppAndComplete({ allowSameTabFallback: false })
   }
 
   return (
@@ -154,20 +157,13 @@ export function CheckoutForm() {
             />
           </FormField>
 
-          <FormField
-            id="checkout-city"
-            label="Cidade / Bairro"
-            error={errors.city?.message}
-          >
-            <Input
-              id="checkout-city"
-              autoComplete="address-level2"
-              placeholder="Ex.: São Paulo - Vila Mariana"
-              disabled={isSubmittingOrder}
-              aria-invalid={Boolean(errors.city)}
-              {...register('city')}
-            />
-          </FormField>
+          <DeliveryAddressForm
+            register={register}
+            errors={errors}
+            watch={watch}
+            setValue={setValue}
+            disabled={isSubmittingOrder}
+          />
 
           <FormField
             id="checkout-notes"
@@ -248,36 +244,5 @@ export function CheckoutForm() {
         </p>
       </div>
     </form>
-  )
-}
-
-function FormField({
-  id,
-  label,
-  optional,
-  error,
-  children,
-}: {
-  id: string
-  label: string
-  optional?: boolean
-  error?: string
-  children: React.ReactNode
-}) {
-  return (
-    <div className="space-y-1.5">
-      <div className="flex items-baseline justify-between">
-        <Label htmlFor={id} className="text-xs uppercase tracking-[0.12em] text-foreground/80">
-          {label}
-        </Label>
-        {optional && (
-          <span className="text-[11px] text-muted-foreground">opcional</span>
-        )}
-      </div>
-      {children}
-      {error && (
-        <p className={cn('text-xs leading-5 text-destructive')}>{error}</p>
-      )}
-    </div>
   )
 }

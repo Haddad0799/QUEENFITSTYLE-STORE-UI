@@ -4,10 +4,9 @@ import type {
   CreateOrderResponse,
 } from '@/src/types/order.types'
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
+const ORDERS_ENDPOINT = '/api/orders'
 
 const ordersApi = axios.create({
-  baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -34,7 +33,7 @@ function normalizeOrderResponse(data: unknown): CreateOrderResponse {
 }
 
 export async function createOrder(input: CreateOrderInput) {
-  const response = await ordersApi.post<unknown>('/store/orders', input)
+  const response = await ordersApi.post<unknown>(ORDERS_ENDPOINT, input)
   return normalizeOrderResponse(response.data)
 }
 

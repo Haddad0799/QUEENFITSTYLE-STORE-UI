@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { confirmReservation } from '@/src/lib/erpClient'
+import { ErpClientError, confirmReservation } from '@/src/lib/erpClient'
 
 type ConfirmRequestBody = {
   reservationId?: unknown
@@ -30,7 +30,20 @@ export async function POST(req: NextRequest) {
   try {
     await confirmReservation(reservationId)
     return new NextResponse(null, { status: 204 })
-  } catch {
+  } catch (error) {
+    console.error('[cart/confirm] falha ao confirmar reserva', {
+      reservationId,
+      status: error instanceof ErpClientError ? error.statusCode : undefined,
+      error,
+    })
+
+    if (error instanceof ErpClientError) {
+      return NextResponse.json(
+        { error: 'Falha ao confirmar a reserva' },
+        { status: error.statusCode }
+      )
+    }
+
     return NextResponse.json({ error: 'Serviço indisponível' }, { status: 503 })
   }
 }
