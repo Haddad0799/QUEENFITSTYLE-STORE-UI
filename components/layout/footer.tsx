@@ -1,18 +1,20 @@
 import Link from 'next/link'
-import { Facebook, Instagram, Youtube } from 'lucide-react'
+import { Instagram } from 'lucide-react'
 import { getCategories } from '@/lib/api'
+import { whatsapp } from '@/lib/whatsapp'
+
+const INSTAGRAM_URL = 'https://www.instagram.com/queen_fitstyle?igsh=MnZud3pmeHg1OGd0'
 
 const footerLinks = {
   support: [
-    { label: 'Contato', href: '#' },
-    { label: 'Trocas e Devoluções', href: '#' },
-    { label: 'Rastreamento', href: '#' },
+    { label: 'Contato', href: whatsapp.contact() },
+    { label: 'Trocas e Devoluções', href: whatsapp.return() },
+    { label: 'Rastreamento', href: whatsapp.tracking() },
     { label: 'FAQ', href: '#' },
   ],
   company: [
     { label: 'Sobre Nós', href: '#' },
     { label: 'Sustentabilidade', href: '#' },
-    { label: 'Carreiras', href: '#' },
   ],
 }
 
@@ -39,25 +41,13 @@ export async function Footer() {
             </p>
             <div className="flex items-center gap-4">
               <a
-                href="#"
+                href={INSTAGRAM_URL}
+                target="_blank"
+                rel="noopener noreferrer"
                 className="text-muted-foreground transition-colors hover:text-foreground"
                 aria-label="Instagram"
               >
                 <Instagram className="h-5 w-5" />
-              </a>
-              <a
-                href="#"
-                className="text-muted-foreground transition-colors hover:text-foreground"
-                aria-label="Facebook"
-              >
-                <Facebook className="h-5 w-5" />
-              </a>
-              <a
-                href="#"
-                className="text-muted-foreground transition-colors hover:text-foreground"
-                aria-label="YouTube"
-              >
-                <Youtube className="h-5 w-5" />
               </a>
             </div>
           </div>
@@ -83,12 +73,23 @@ export async function Footer() {
             <ul className="space-y-3">
               {footerLinks.support.map((link) => (
                 <li key={link.label}>
-                  <Link
-                    href={link.href}
-                    className="text-sm text-muted-foreground transition-colors hover:text-foreground"
-                  >
-                    {link.label}
-                  </Link>
+                  {link.href.startsWith('https') ? (
+                    <a
+                      href={link.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+                    >
+                      {link.label}
+                    </a>
+                  ) : (
+                    <Link
+                      href={link.href}
+                      className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+                    >
+                      {link.label}
+                    </Link>
+                  )}
                 </li>
               ))}
             </ul>
