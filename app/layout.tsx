@@ -26,6 +26,11 @@ export const metadata: Metadata = {
   description: 'Descubra nossa coleção de roupas fitness femininas. Leggings, tops, shorts e muito mais com qualidade premium e estilo único.',
   keywords: ['fitness', 'roupas femininas', 'leggings', 'academia', 'moda fitness'],
   authors: [{ name: 'QueenFitStyle' }],
+  icons: {
+    icon: '/logo.png',
+    shortcut: '/logo.png',
+    apple: '/logo.png',
+  },
   openGraph: {
     type: 'website',
     locale: 'pt_BR',

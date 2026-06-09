@@ -1,6 +1,7 @@
 'use client'
 
 import type { ReactNode } from 'react'
+import Image from 'next/image'
 import Link from 'next/link'
 import { startTransition, useEffect, useRef, useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
@@ -326,10 +327,18 @@ export function Header() {
               <div className="hidden lg:flex lg:items-center lg:gap-10">
                 <Link
                   href="/"
-                  className="group flex items-center"
+                  className="group flex items-center gap-2.5"
                   onMouseEnter={closeCatalogMenu}
                   onFocus={closeCatalogMenu}
                 >
+                  <Image
+                    src="/logo.png"
+                    alt="QueenFitStyle"
+                    width={48}
+                    height={48}
+                    priority
+                    className="h-12 w-12 shrink-0 rounded-full object-contain transition-opacity group-hover:opacity-75"
+                  />
                   <span className="text-xl font-semibold tracking-[0.32em] text-foreground transition-opacity group-hover:opacity-75">
                     QUEENFITSTYLE
                   </span>
@@ -371,7 +380,15 @@ export function Header() {
               </div>
             </div>
 
-            <Link href="/" className="lg:hidden">
+            <Link href="/" className="flex items-center gap-2.5 lg:hidden">
+              <Image
+                src="/logo.png"
+                alt="QueenFitStyle"
+                width={40}
+                height={40}
+                priority
+                className="h-9 w-9 shrink-0 rounded-full object-contain"
+              />
               <span className="text-sm font-semibold tracking-[0.24em] text-foreground sm:text-base">
                 QUEENFITSTYLE
               </span>
