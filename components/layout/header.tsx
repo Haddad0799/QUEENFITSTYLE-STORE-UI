@@ -380,16 +380,16 @@ export function Header() {
               </div>
             </div>
 
-            <Link href="/" className="flex items-center gap-2.5 lg:hidden">
+            <Link href="/" className="flex items-center gap-2 lg:hidden">
               <Image
                 src="/logo.png"
                 alt="QueenFitStyle"
-                width={40}
-                height={40}
+                width={32}
+                height={32}
                 priority
-                className="h-9 w-9 shrink-0 rounded-full object-contain"
+                className="h-7 w-7 shrink-0 rounded-full object-contain"
               />
-              <span className="text-sm font-semibold tracking-[0.24em] text-foreground sm:text-base">
+              <span className="text-sm font-semibold tracking-[0.18em] text-foreground">
                 QUEENFITSTYLE
               </span>
             </Link>
