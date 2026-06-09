@@ -16,6 +16,11 @@ export const checkoutSchema = z.object({
     .string()
     .trim()
     .refine(isValidBrazilianPhone, 'Informe um WhatsApp válido com DDD.'),
+  email: z
+    .string()
+    .trim()
+    .min(1, 'Informe seu email.')
+    .email('Informe um email válido.'),
   cep: z
     .string()
     .trim()

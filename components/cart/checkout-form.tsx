@@ -43,6 +43,7 @@ export function CheckoutForm() {
     defaultValues: {
       name: '',
       phone: '',
+      email: '',
       cep: '',
       street: '',
       number: '',
@@ -62,6 +63,7 @@ export function CheckoutForm() {
         name: values.name,
         phone: stripPhoneDigits(values.phone),
         city: DELIVERY_CITY,
+        email: values.email.trim(),
       },
       deliveryAddress: {
         cep: stripCepDigits(values.cep),
@@ -154,6 +156,24 @@ export function CheckoutForm() {
               }}
               disabled={isSubmittingOrder}
               aria-invalid={Boolean(errors.phone)}
+            />
+          </FormField>
+
+          <FormField
+            id="checkout-email"
+            label="Email"
+            error={errors.email?.message}
+          >
+            <Input
+              id="checkout-email"
+              type="email"
+              required
+              inputMode="email"
+              autoComplete="email"
+              placeholder="Email para receber a confirmação do pedido"
+              disabled={isSubmittingOrder}
+              aria-invalid={Boolean(errors.email)}
+              {...register('email')}
             />
           </FormField>
 

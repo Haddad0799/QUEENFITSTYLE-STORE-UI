@@ -11,6 +11,7 @@ export type OrderCustomerInput = {
   name: string
   phone: string
   city: string
+  email: string
 }
 
 export type DeliveryAddress = {
