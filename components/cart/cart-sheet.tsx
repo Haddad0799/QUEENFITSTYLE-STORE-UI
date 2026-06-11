@@ -17,7 +17,7 @@ const HEADERS: Record<
 > = {
   cart: {
     title: 'Carrinho',
-    description: 'Reservas de estoque ativas por 2 horas.',
+    description: 'Revise seus itens e finalize o pedido pelo WhatsApp.',
   },
   checkout: {
     title: 'Finalizar pedido',

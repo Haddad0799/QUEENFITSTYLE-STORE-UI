@@ -27,7 +27,7 @@ export const checkoutSchema = z.object({
     .refine(isCompleteCep, 'Informe um CEP válido (00000-000).')
     .refine(
       isPirenopolisCep,
-      'Entregamos apenas em Pirenópolis - GO, para CEPs de 72980-000 a 72989-999.',
+      'No momento entregamos apenas em Pirenópolis - GO.',
     ),
   street: z
     .string()
