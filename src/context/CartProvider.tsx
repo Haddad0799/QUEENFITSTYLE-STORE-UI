@@ -515,6 +515,15 @@ function CartStateProvider({ children }: { children: ReactNode }) {
     setStep('cart')
   }, [applyPendingOrder, replaceItems])
 
+  const dismissPendingOrder = useCallback(() => {
+    // "Fechar mesmo assim" na tela de confirmação: o pedido já vive no ERP e será
+    // pago ou cancelado automaticamente em 24h. Limpamos o estado local para o
+    // cliente poder montar um novo carrinho — não acompanhamos o pagamento aqui.
+    finalizePendingOrderLocally()
+    setOrderCancelledNotice(false)
+    setCartOpenState(false)
+  }, [finalizePendingOrderLocally])
+
   const markOrderConfirmedLocally = useCallback(() => {
     // O ERP confirmou o pedido (reservas já viraram venda). Limpamos carrinho e
     // pedido pendente localmente e fechamos o drawer — a navegação para a tela
@@ -641,6 +650,7 @@ function CartStateProvider({ children }: { children: ReactNode }) {
       submitOrder: (input) => submitOrderMutation.mutateAsync(input),
       openWhatsAppAndComplete,
       cancelPendingOrder: () => cancelPendingOrderMutation.mutateAsync(),
+      dismissPendingOrder,
       markOrderConfirmedLocally,
       markOrderCancelledLocally,
       orderCancelledNotice,
@@ -654,6 +664,7 @@ function CartStateProvider({ children }: { children: ReactNode }) {
       cancelPendingOrderMutation,
       decreaseQuantityMutation,
       dismissOrderCancelledNotice,
+      dismissPendingOrder,
       increaseQuantityMutation,
       isHydrated,
       isCartOpen,

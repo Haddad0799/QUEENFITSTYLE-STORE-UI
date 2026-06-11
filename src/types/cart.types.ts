@@ -74,6 +74,9 @@ export type CartContextValue = {
   submitOrder: (input: SubmitOrderInput) => Promise<SubmitOrderResult>
   openWhatsAppAndComplete: (options?: { allowSameTabFallback?: boolean }) => boolean
   cancelPendingOrder: () => Promise<CancelPendingOrderResult>
+  // Encerra o pedido pendente localmente (limpa carrinho e pedido) e fecha o
+  // drawer. Usado pelo "Fechar mesmo assim" da tela de confirmação.
+  dismissPendingOrder: () => void
   // Resoluções locais disparadas pelo acompanhamento de status do pedido (polling/SSE).
   // Não chamam o backend — apenas refletem no frontend o que o ERP já decidiu.
   markOrderConfirmedLocally: () => void

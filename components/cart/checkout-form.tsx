@@ -27,7 +27,6 @@ export function CheckoutForm() {
     backToCart,
     submitOrder,
     isSubmittingOrder,
-    openWhatsAppAndComplete,
   } = useCart()
   const [serverError, setServerError] = useState<string | null>(null)
 
@@ -80,13 +79,9 @@ export function CheckoutForm() {
       return
     }
 
-    // Auto-abertura otimista: aproveitamos a ativação transitória do clique em
-    // "Confirmar pedido" para já abrir o WhatsApp numa nova aba. Se o navegador
-    // bloquear (comum no iOS/Safari por causa do await acima), NÃO forçamos a
-    // navegação — o CartProvider já mudou para o step 'pending-order', então o
-    // usuário fica na tela de recuperação com o botão "Abrir WhatsApp" como
-    // fallback. Mantém a rede de segurança do fluxo resiliente intacta.
-    openWhatsAppAndComplete({ allowSameTabFallback: false })
+    // Pedido criado: o CartProvider já mudou para o step 'pending-order', então
+    // o usuário cai na tela de confirmação — que abre o WhatsApp automaticamente
+    // ao montar e mantém o resumo do pedido para reabrir o link quando quiser.
   }
 
   return (
