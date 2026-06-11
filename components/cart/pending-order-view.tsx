@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { AlertCircle, CheckCircle2, Loader2, MessageCircle } from 'lucide-react'
+import { AlertCircle, CheckCircle2, Loader2, MessageCircle, X } from 'lucide-react'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -186,8 +186,19 @@ export function PendingOrderView() {
 
       <AlertDialog open={isReminderOpen} onOpenChange={setReminderOpen}>
         <AlertDialogContent>
+          <button
+            type="button"
+            onClick={() => setReminderOpen(false)}
+            className="absolute right-4 top-4 rounded-full p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
+            <X className="h-4 w-4" />
+            <span className="sr-only">Fechar</span>
+          </button>
+
           <AlertDialogHeader>
-            <AlertDialogTitle>Seu pedido ainda não está confirmado</AlertDialogTitle>
+            <AlertDialogTitle className="pr-6">
+              Seu pedido ainda não está confirmado
+            </AlertDialogTitle>
             <AlertDialogDescription>
               Você precisa enviar a mensagem pelo WhatsApp para nossa equipe
               confirmar o pagamento. Se não recebermos sua mensagem, o pedido será
@@ -196,7 +207,7 @@ export function PendingOrderView() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel onClick={() => dismissPendingOrder()}>
-              Fechar mesmo assim
+              Já enviei, fechar
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={openWhatsApp}
