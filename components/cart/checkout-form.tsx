@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { useForm } from 'react-hook-form'
+import { useForm, type FieldErrors } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { AlertCircle, ArrowLeft, Loader2, Send } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -18,6 +18,35 @@ import {
 } from '@/components/cart/checkout-schema'
 import { FormField } from '@/components/cart/form-field'
 import { DeliveryAddressForm } from '@/components/cart/delivery-address-form'
+
+// Ordem visual dos campos no formulário. Usada para descobrir qual é o primeiro
+// campo com erro ao submeter — cada campo tem o id `checkout-<campo>`.
+const FIELD_FOCUS_ORDER: (keyof CheckoutFormValues)[] = [
+  'name',
+  'phone',
+  'email',
+  'cep',
+  'street',
+  'number',
+  'complement',
+  'neighborhood',
+  'notes',
+]
+
+// Ao submeter com erros, leva o primeiro campo inválido para a área visível e
+// dá foco nele — no mobile isso também posiciona o teclado no lugar certo. Os
+// demais campos seguem mostrando suas mensagens para o usuário corrigir descendo.
+function focusFirstError(formErrors: FieldErrors<CheckoutFormValues>) {
+  const firstField = FIELD_FOCUS_ORDER.find((field) => formErrors[field])
+  if (!firstField) return
+
+  const element = document.getElementById(`checkout-${firstField}`)
+  if (!element) return
+
+  element.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  // preventScroll evita um "pulo" instantâneo concorrendo com o scroll suave.
+  element.focus({ preventScroll: true })
+}
 
 export function CheckoutForm() {
   const {
@@ -39,6 +68,9 @@ export function CheckoutForm() {
   } = useForm<CheckoutFormValues>({
     resolver: zodResolver(checkoutSchema),
     mode: 'onBlur',
+    // Desligamos o foco nativo: campos controlados (telefone/CEP) não têm ref,
+    // então focamos manualmente pelo id em focusFirstError (ordem visual correta).
+    shouldFocusError: false,
     defaultValues: {
       name: '',
       phone: '',
@@ -86,7 +118,7 @@ export function CheckoutForm() {
 
   return (
     <form
-      onSubmit={handleSubmit(onSubmit)}
+      onSubmit={handleSubmit(onSubmit, focusFirstError)}
       className="flex flex-1 flex-col overflow-hidden"
       noValidate
     >
