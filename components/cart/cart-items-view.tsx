@@ -7,11 +7,6 @@ import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { formatPrice } from '@/lib/api'
 import { useCart } from '@/src/hooks/useCart'
-import {
-  formatReservationTimeLeft,
-  getReservationTimeLeftMs,
-  isDraftReservationId,
-} from '@/src/utils/reservation.utils'
 
 export function CartItemsView() {
   const {
@@ -25,21 +20,12 @@ export function CartItemsView() {
     orderCancelledNotice,
     dismissOrderCancelledNotice,
   } = useCart()
-  const [now, setNow] = useState(Date.now())
   const [cartError, setCartError] = useState<string | null>(null)
   const errorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const hasLoadingItem = useMemo(
     () => items.some((item) => isSkuLoading(item.skuCode)),
     [isSkuLoading, items]
   )
-
-  useEffect(() => {
-    const intervalId = window.setInterval(() => {
-      setNow(Date.now())
-    }, 1000)
-
-    return () => window.clearInterval(intervalId)
-  }, [])
 
   useEffect(() => {
     return () => {
@@ -88,15 +74,13 @@ export function CartItemsView() {
           <div className="flex min-h-[280px] flex-col items-center justify-center text-center">
             <p className="text-sm font-medium text-foreground">Seu carrinho está vazio.</p>
             <p className="mt-2 text-sm leading-6 text-muted-foreground">
-              Os itens adicionados aparecem aqui com o tempo restante da reserva.
+              Os produtos que você adicionar aparecem aqui.
             </p>
           </div>
         ) : (
           <div className="space-y-5">
             {items.map((item) => {
               const isLoading = isSkuLoading(item.skuCode)
-              const isDraft = isDraftReservationId(item.reservationId)
-              const timeLeftMs = getReservationTimeLeftMs(item, now)
 
               return (
                 <div key={item.skuCode} className="space-y-4">
@@ -179,14 +163,6 @@ export function CartItemsView() {
                           {formatPrice(item.price * item.quantity)}
                         </p>
                       </div>
-
-                      <p className="mt-3 text-xs font-medium text-muted-foreground">
-                        {isLoading
-                          ? 'Sincronizando reserva...'
-                          : isDraft
-                            ? 'Sem reserva ativa — reservaremos ao finalizar'
-                            : `Reserva expira em ${formatReservationTimeLeft(timeLeftMs)}`}
-                      </p>
                     </div>
                   </div>
                   <Separator />
