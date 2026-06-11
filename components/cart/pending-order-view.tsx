@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { CheckCircle2, MessageCircle } from 'lucide-react'
+import { AlertCircle, CheckCircle2, Loader2, MessageCircle } from 'lucide-react'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -41,8 +41,11 @@ function markAutoOpened(orderId: number) {
 }
 
 export function PendingOrderView() {
-  const { pendingOrder, dismissPendingOrder } = useCart()
+  const { pendingOrder, dismissPendingOrder, cancelPendingOrder, isCancellingOrder } =
+    useCart()
   const [isReminderOpen, setReminderOpen] = useState(false)
+  const [isCancelOpen, setCancelOpen] = useState(false)
+  const [cancelError, setCancelError] = useState<string | null>(null)
 
   const orderId = pendingOrder?.orderId ?? null
   const whatsappUrl = pendingOrder?.whatsappUrl ?? null
@@ -64,6 +67,17 @@ export function PendingOrderView() {
 
   if (!pendingOrder) {
     return null
+  }
+
+  async function handleCancel() {
+    setCancelError(null)
+    const result = await cancelPendingOrder()
+    if (!result.ok) {
+      setCancelError(result.message ?? 'Não foi possível cancelar o pedido.')
+      return
+    }
+    // Sucesso: o pedido pendente é limpo no contexto e a tela desmonta.
+    setCancelOpen(false)
   }
 
   return (
@@ -152,6 +166,18 @@ export function PendingOrderView() {
           Fechar
         </Button>
 
+        <button
+          type="button"
+          onClick={() => {
+            setCancelError(null)
+            setCancelOpen(true)
+          }}
+          disabled={isCancellingOrder}
+          className="mt-4 inline-flex w-full items-center justify-center text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground transition-colors hover:text-destructive disabled:opacity-50"
+        >
+          Cancelar pedido
+        </button>
+
         <p className="mt-3 text-center text-[11px] leading-5 text-muted-foreground">
           Seu pedido fica salvo aqui mesmo se você fechar a aba ou tiver
           problemas para abrir o WhatsApp.
@@ -178,6 +204,52 @@ export function PendingOrderView() {
             >
               <MessageCircle className="h-5 w-5" />
               Abrir WhatsApp
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={isCancelOpen}
+        onOpenChange={(open) => {
+          if (isCancellingOrder) return
+          setCancelOpen(open)
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancelar pedido?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Essa ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          {cancelError && (
+            <div className="flex items-start gap-2 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>{cancelError}</span>
+            </div>
+          )}
+
+          <AlertDialogFooter>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => void handleCancel()}
+              disabled={isCancellingOrder}
+              className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+            >
+              {isCancellingOrder ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Cancelando...
+                </>
+              ) : (
+                'Cancelar pedido'
+              )}
+            </Button>
+            <AlertDialogAction disabled={isCancellingOrder}>
+              Manter pedido
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
