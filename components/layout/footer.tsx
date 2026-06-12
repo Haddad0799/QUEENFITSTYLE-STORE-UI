@@ -14,7 +14,6 @@ const footerLinks = {
   ],
   company: [
     { label: 'Sobre Nós', href: '#' },
-    { label: 'Sustentabilidade', href: '#' },
   ],
 }
 

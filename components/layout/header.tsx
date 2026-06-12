@@ -5,7 +5,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { startTransition, useEffect, useRef, useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
-import { ChevronDown, Menu, Search, ShoppingBag, User, X } from 'lucide-react'
+import { ChevronDown, Menu, Search, ShoppingBag, X } from 'lucide-react'
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -400,10 +400,6 @@ export function Header() {
                 onClick={() => setIsSearchOpen((open) => !open)}
               >
                 {isSearchOpen ? <X className="h-4.5 w-4.5" /> : <Search className="h-4.5 w-4.5" />}
-              </IconButton>
-
-              <IconButton label="Conta">
-                <User className="h-4.5 w-4.5" />
               </IconButton>
 
               <Sheet open={isCartOpen} onOpenChange={setCartOpen}>

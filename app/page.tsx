@@ -2,7 +2,6 @@ import { Suspense } from 'react'
 import { HeroBanner } from '@/components/home/hero-banner'
 import { FeaturedProducts } from '@/components/home/featured-products'
 import { CategoryGrid } from '@/components/home/category-grid'
-import { Newsletter } from '@/components/home/newsletter'
 import { ProductGridSkeleton } from '@/components/product/product-skeleton'
 
 export default function HomePage() {
@@ -13,7 +12,6 @@ export default function HomePage() {
         <FeaturedProducts />
       </Suspense>
       <CategoryGrid />
-      <Newsletter />
     </>
   )
 }
