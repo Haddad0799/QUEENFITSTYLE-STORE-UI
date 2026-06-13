@@ -3,16 +3,23 @@
 import type { ReactNode } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { startTransition, useEffect, useRef, useState } from 'react'
-import { usePathname, useRouter } from 'next/navigation'
+import { Suspense, useCallback, useEffect, useRef, useState, useTransition } from 'react'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { ChevronDown, Menu, Search, ShoppingBag, X } from 'lucide-react'
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Spinner } from '@/components/ui/spinner'
 import {
   buildNavigationSignature,
   useNavigationLoading,
 } from '@/components/navigation/navigation-loading-provider'
+import {
+  buildCatalogQueryString,
+  mergeCatalogQueryFilters,
+  parseCatalogSearchParams,
+} from '@/lib/catalog-query'
+import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import {
   Sheet,
   SheetClose,
@@ -34,12 +41,15 @@ import { cn } from '@/lib/utils'
 import { useCart } from '@/src/hooks/useCart'
 
 const CATALOG_CLOSE_DELAY_MS = 120
+const SEARCH_DEBOUNCE_MS = 300
+const PRODUCTS_PATH = '/products'
 
 export function Header() {
   const pathname = usePathname()
   const router = useRouter()
   const { beginNavigation } = useNavigationLoading()
   const { totalItems, isHydrated, isCartOpen, setCartOpen } = useCart()
+  const [isPending, startTransition] = useTransition()
   const [isSearchOpen, setIsSearchOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [isCatalogOpen, setIsCatalogOpen] = useState(false)
@@ -80,6 +90,63 @@ export function Header() {
     }, CATALOG_CLOSE_DELAY_MS)
   }
 
+  const debouncedQuery = useDebouncedValue(searchQuery, SEARCH_DEBOUNCE_MS)
+  // Termo de busca já refletido na URL. Serve para ignorar o eco da nossa
+  // própria navegação e distinguir navegações externas (voltar/avançar,
+  // link compartilhado) da digitação.
+  const syncedSearchRef = useRef('')
+
+  // Os filtros vivos (categoria, cor, preço) são lidos da URL no momento da
+  // navegação, mantendo o Header renderizável no servidor sem useSearchParams.
+  const buildSearchHref = useCallback((term: string) => {
+    const isOnProducts = window.location.pathname === PRODUCTS_PATH
+    const baseFilters = isOnProducts
+      ? parseCatalogSearchParams(new URLSearchParams(window.location.search))
+      : {}
+    const nextFilters = mergeCatalogQueryFilters(
+      baseFilters,
+      { search: term || null },
+      { resetPage: true }
+    )
+    const queryString = buildCatalogQueryString(nextFilters)
+    return queryString ? `${PRODUCTS_PATH}?${queryString}` : PRODUCTS_PATH
+  }, [])
+
+  const navigateToSearch = useCallback(
+    (href: string, mode: 'push' | 'replace') => {
+      const currentHref = buildNavigationSignature(
+        window.location.pathname,
+        new URLSearchParams(window.location.search)
+      )
+
+      if (href === currentHref) {
+        return
+      }
+
+      beginNavigation()
+      startTransition(() => {
+        if (mode === 'push') {
+          router.push(href, { scroll: false })
+        } else {
+          router.replace(href, { scroll: false })
+        }
+      })
+    },
+    [beginNavigation, router]
+  )
+
+  // URL -> input, apenas para navegações externas. O eco da nossa própria
+  // navegação coincide com o ref e é ignorado, evitando sobrescrever o texto
+  // enquanto a cliente digita.
+  const handleUrlSearchChange = useCallback((nextSearch: string) => {
+    if (nextSearch === syncedSearchRef.current) {
+      return
+    }
+
+    syncedSearchRef.current = nextSearch
+    setSearchQuery(nextSearch)
+  }, [])
+
   function handleSearch(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
 
@@ -93,21 +160,27 @@ export function Header() {
     setIsMobileMenuOpen(false)
     closeCatalogMenu()
 
-    const nextHref = `/products?search=${encodeURIComponent(query)}`
-    const currentHref = buildNavigationSignature(
-      window.location.pathname,
-      new URLSearchParams(window.location.search)
-    )
+    syncedSearchRef.current = query
+    navigateToSearch(buildSearchHref(query), 'push')
+  }
 
-    if (nextHref === currentHref) {
+  // Digitação -> URL (replace, para não poluir o histórico a cada tecla).
+  useEffect(() => {
+    const trimmed = debouncedQuery.trim()
+
+    if (trimmed === syncedSearchRef.current.trim()) {
       return
     }
 
-    beginNavigation()
-    startTransition(() => {
-      router.push(nextHref)
-    })
-  }
+    // Fora de /products, só navegamos quando há um termo para buscar.
+    if (pathname !== PRODUCTS_PATH && !trimmed) {
+      syncedSearchRef.current = trimmed
+      return
+    }
+
+    syncedSearchRef.current = trimmed
+    navigateToSearch(buildSearchHref(trimmed), 'replace')
+  }, [buildSearchHref, debouncedQuery, navigateToSearch, pathname])
 
   useEffect(() => {
     closeCatalogMenu()
@@ -165,6 +238,10 @@ export function Header() {
 
   return (
     <header className="sticky top-0 z-50 border-b border-border/70 bg-background/92 backdrop-blur-xl supports-[backdrop-filter]:bg-background/80">
+      <Suspense fallback={null}>
+        <SearchParamsListener onSearchChange={handleUrlSearchChange} />
+      </Suspense>
+
       <div className="relative" ref={catalogAreaRef}>
         <div className="mx-auto max-w-[1440px] px-4 lg:px-6">
           <div className="flex h-[74px] items-center justify-between gap-4 lg:h-[84px]">
@@ -195,7 +272,11 @@ export function Header() {
                   <div className="flex h-full flex-col overflow-y-auto px-6 pb-8">
                     <form onSubmit={handleSearch} className="border-b border-border/70 py-5">
                       <div className="flex items-center gap-3 rounded-full border border-border/80 bg-[#fcfbf8] px-4">
-                        <Search className="h-4 w-4 text-muted-foreground" />
+                        {isPending ? (
+                          <Spinner className="h-4 w-4 text-muted-foreground" />
+                        ) : (
+                          <Search className="h-4 w-4 text-muted-foreground" />
+                        )}
                         <Input
                           type="search"
                           placeholder="Buscar por produto, modelagem ou coleção"
@@ -427,7 +508,11 @@ export function Header() {
               className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center"
             >
               <div className="flex flex-1 items-center gap-3 rounded-full border border-border/80 bg-[#fcfbf8] px-4">
-                <Search className="h-4 w-4 text-muted-foreground" />
+                {isPending ? (
+                  <Spinner className="h-4 w-4 text-muted-foreground" />
+                ) : (
+                  <Search className="h-4 w-4 text-muted-foreground" />
+                )}
                 <Input
                   type="search"
                   placeholder="Buscar por leggings, tops, conjuntos ou coleção"
@@ -478,6 +563,24 @@ function desktopNavClass(active: boolean) {
     'inline-flex items-center gap-2 text-sm font-medium uppercase tracking-[0.16em] transition-colors',
     active ? 'text-foreground' : 'text-foreground/66 hover:text-foreground'
   )
+}
+
+// Isola o useSearchParams num boundary de Suspense para que o Header continue
+// renderizável no servidor. Reage a navegações (cliente ou voltar/avançar) e
+// propaga o termo de busca da URL para o input.
+function SearchParamsListener({
+  onSearchChange,
+}: {
+  onSearchChange: (search: string) => void
+}) {
+  const searchParams = useSearchParams()
+  const search = searchParams.get('search') ?? ''
+
+  useEffect(() => {
+    onSearchChange(search)
+  }, [onSearchChange, search])
+
+  return null
 }
 
 function mobileNavLink(active: boolean) {
