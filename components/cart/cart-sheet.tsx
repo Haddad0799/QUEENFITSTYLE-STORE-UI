@@ -24,7 +24,7 @@ const HEADERS: Record<
     description: 'Preencha seus dados para confirmar o pedido pelo WhatsApp.',
   },
   'pending-order': {
-    title: 'Pedido pendente',
+    title: 'Pedido criado com sucesso!',
     description:
       'Falta apenas abrir o WhatsApp para a nossa equipe confirmar.',
   },

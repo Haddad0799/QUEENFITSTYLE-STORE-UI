@@ -88,7 +88,7 @@ export function PendingOrderView() {
             <CheckCircle2 className="h-7 w-7" />
           </span>
           <h3 className="mt-4 text-base font-semibold tracking-tight text-foreground">
-            Pedido criado com sucesso
+            Aguardando você enviar pelo WhatsApp
           </h3>
           <p className="mt-2 max-w-[280px] text-sm leading-6 text-muted-foreground">
             Para finalizar, abra o WhatsApp e envie a mensagem para nossa equipe.
