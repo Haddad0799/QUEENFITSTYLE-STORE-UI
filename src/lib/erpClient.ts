@@ -1,5 +1,6 @@
 import 'server-only'
 
+import { unstable_cache } from 'next/cache'
 import type { ReserveStockResponse } from '@/src/types/cart.types'
 import type {
   CreateOrderInput,
@@ -28,6 +29,19 @@ export type StockResponse = {
   availableQuantity: number
   reservedQuantity: number
 }
+
+/** Configurações da loja editáveis pela dona (GET /store/settings). */
+export type StoreSettings = {
+  /** Número do WhatsApp da loja, apenas dígitos (DDI 55). '' se não configurado. */
+  whatsappPhone: string
+}
+
+/** Tag de cache para revalidar as configurações via POST /api/revalidate. */
+export const STORE_SETTINGS_TAG = 'store-settings'
+
+// Configurações mudam raramente: cacheamos por 1h, com revalidação por tag
+// quando a dona altera algo no ERP.
+const STORE_SETTINGS_REVALIDATE_SECONDS = 3600
 
 export class ErpClientError extends Error {
   constructor(
@@ -228,3 +242,52 @@ export async function cancelOrderErp(orderId: number): Promise<void> {
     throw new ErpClientError('Falha ao cancelar pedido', response.status)
   }
 }
+
+function normalizeStoreSettings(data: unknown): StoreSettings {
+  const record = (data && typeof data === 'object' ? data : {}) as Record<
+    string,
+    unknown
+  >
+  // O ERP retorna snake_case (whatsapp_phone); aceitamos camelCase por garantia.
+  const rawPhone =
+    typeof record.whatsapp_phone === 'string'
+      ? record.whatsapp_phone
+      : typeof record.whatsappPhone === 'string'
+        ? record.whatsappPhone
+        : ''
+
+  // Apenas dígitos: remove +, espaços, parênteses e hífens que possam vir.
+  return { whatsappPhone: rawPhone.replace(/\D/g, '') }
+}
+
+async function fetchStoreSettings(): Promise<StoreSettings> {
+  const response = await fetch(`${BACKEND_URL}/store/settings`, {
+    method: 'GET',
+    headers: await authorizedHeaders(),
+    cache: 'no-store',
+  })
+
+  if (response.status !== 200) {
+    throw new ErpClientError(
+      'Falha ao consultar as configurações da loja.',
+      response.status
+    )
+  }
+
+  return normalizeStoreSettings(await response.json())
+}
+
+/**
+ * Configurações da loja (GET /store/settings), autenticado com o service token —
+ * a mesma autenticação dos demais endpoints /store/*.
+ *
+ * O resultado é cacheado por tag/revalidate via unstable_cache. Assim o fetch
+ * autenticado (e o token no-store) não roda a cada render nem força renderização
+ * dinâmica das páginas que consomem isto (ex.: o footer no layout). Para forçar
+ * atualização imediata: revalidateTag('store-settings').
+ */
+export const getStoreSettings = unstable_cache(
+  fetchStoreSettings,
+  [STORE_SETTINGS_TAG],
+  { tags: [STORE_SETTINGS_TAG], revalidate: STORE_SETTINGS_REVALIDATE_SECONDS }
+)

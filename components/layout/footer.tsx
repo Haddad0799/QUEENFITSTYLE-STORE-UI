@@ -1,30 +1,36 @@
 import Link from 'next/link'
 import { Instagram } from 'lucide-react'
 import { getCategories } from '@/lib/api'
-import { whatsapp } from '@/lib/whatsapp'
+import { getStoreWhatsAppLinks } from '@/lib/whatsapp'
 
 const INSTAGRAM_URL = 'https://www.instagram.com/queen_fitstyle?igsh=MnZud3pmeHg1OGd0'
 
-const footerLinks = {
-  support: [
-    { label: 'Contato', href: whatsapp.contact() },
-    { label: 'Trocas e Devoluções', href: whatsapp.return() },
-    { label: 'Rastreamento', href: whatsapp.tracking() },
-    { label: 'FAQ', href: '#' },
-  ],
-  company: [
-    { label: 'Sobre Nós', href: '#' },
-  ],
-}
+type FooterLink = { label: string; href: string }
+
+const companyLinks: FooterLink[] = [{ label: 'Sobre Nós', href: '#' }]
 
 export async function Footer() {
-  let shopLinks: { label: string; href: string }[] = []
-  try {
-    const categories = await getCategories()
-    shopLinks = categories.map((c) => ({ label: c.name, href: `/products?category=${c.slug}` }))
-  } catch {
-    shopLinks = []
-  }
+  // Categorias e número de WhatsApp vêm de fontes que podem falhar; ambas
+  // degradam para um fallback seguro sem quebrar a renderização do footer.
+  const [categories, whatsappLinks] = await Promise.all([
+    getCategories().catch(() => []),
+    getStoreWhatsAppLinks(),
+  ])
+
+  const shopLinks: FooterLink[] = categories.map((c) => ({
+    label: c.name,
+    href: `/products?category=${c.slug}`,
+  }))
+
+  // Os links de WhatsApp só entram quando há número configurado; sem ele,
+  // mostramos apenas o FAQ (em vez de links wa.me sem destinatário).
+  const supportLinks: FooterLink[] = [
+    whatsappLinks.contact && { label: 'Contato', href: whatsappLinks.contact },
+    whatsappLinks.return && { label: 'Trocas e Devoluções', href: whatsappLinks.return },
+    whatsappLinks.tracking && { label: 'Rastreamento', href: whatsappLinks.tracking },
+    { label: 'FAQ', href: '#' },
+  ].filter((link): link is FooterLink => Boolean(link))
+
   return (
     <footer className="border-t border-border bg-card">
       <div className="container mx-auto px-4 py-12">
@@ -70,7 +76,7 @@ export async function Footer() {
           <div>
             <h3 className="mb-4 font-semibold text-foreground">Suporte</h3>
             <ul className="space-y-3">
-              {footerLinks.support.map((link) => (
+              {supportLinks.map((link) => (
                 <li key={link.label}>
                   {link.href.startsWith('https') ? (
                     <a
@@ -97,7 +103,7 @@ export async function Footer() {
           <div>
             <h3 className="mb-4 font-semibold text-foreground">Empresa</h3>
             <ul className="space-y-3">
-              {footerLinks.company.map((link) => (
+              {companyLinks.map((link) => (
                 <li key={link.label}>
                   <Link
                     href={link.href}
