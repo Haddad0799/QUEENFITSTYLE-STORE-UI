@@ -20,6 +20,7 @@ import {
   parseCatalogSearchParams,
 } from '@/lib/catalog-query'
 import { useDebouncedValue } from '@/hooks/use-debounced-value'
+import { PRODUCTS_PATH, shouldReplaceSearchUrl } from '@/lib/search-navigation'
 import {
   Sheet,
   SheetClose,
@@ -42,7 +43,6 @@ import { useCart } from '@/src/hooks/useCart'
 
 const CATALOG_CLOSE_DELAY_MS = 120
 const SEARCH_DEBOUNCE_MS = 300
-const PRODUCTS_PATH = '/products'
 
 export function Header() {
   const pathname = usePathname()
@@ -90,7 +90,9 @@ export function Header() {
     }, CATALOG_CLOSE_DELAY_MS)
   }
 
-  const debouncedQuery = useDebouncedValue(searchQuery, SEARCH_DEBOUNCE_MS)
+  // Camada 1: passar o pathname como resetKey cancela qualquer debounce pendente
+  // na troca de rota, para um timer antigo não disparar após a navegação.
+  const debouncedQuery = useDebouncedValue(searchQuery, SEARCH_DEBOUNCE_MS, pathname)
   // Termo de busca já refletido na URL. Serve para ignorar o eco da nossa
   // própria navegação e distinguir navegações externas (voltar/avançar,
   // link compartilhado) da digitação.
@@ -165,28 +167,22 @@ export function Header() {
   }
 
   // Digitação -> URL (replace, para não poluir o histórico a cada tecla).
+  // A decisão (camadas 2 e 3) fica em shouldReplaceSearchUrl, blindada contra
+  // o redirect de volta a /products ao abrir um produto. Camada 1 (cancelar o
+  // debounce na troca de rota) está no useDebouncedValue acima.
   useEffect(() => {
+    if (
+      !shouldReplaceSearchUrl({
+        pathname,
+        debouncedQuery,
+        searchQuery,
+        syncedSearch: syncedSearchRef.current,
+      })
+    ) {
+      return
+    }
+
     const trimmed = debouncedQuery.trim()
-
-    // Só navega em resposta a um termo que a usuária realmente digitou e que
-    // ainda corresponde ao campo. Ao mudar de rota (ex.: abrir um produto), o
-    // listener reseta o input para o termo da nova URL, mas o valor debounced
-    // fica 300ms defasado. Sem esta guarda, esse valor velho dispararia um
-    // router.replace de volta para /products durante a ida ao detalhe.
-    if (debouncedQuery !== searchQuery) {
-      return
-    }
-
-    if (trimmed === syncedSearchRef.current.trim()) {
-      return
-    }
-
-    // Fora de /products, só navegamos quando há um termo para buscar.
-    if (pathname !== PRODUCTS_PATH && !trimmed) {
-      syncedSearchRef.current = trimmed
-      return
-    }
-
     syncedSearchRef.current = trimmed
     navigateToSearch(buildSearchHref(trimmed), 'replace')
   }, [buildSearchHref, debouncedQuery, navigateToSearch, pathname, searchQuery])
