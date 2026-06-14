@@ -168,6 +168,15 @@ export function Header() {
   useEffect(() => {
     const trimmed = debouncedQuery.trim()
 
+    // Só navega em resposta a um termo que a usuária realmente digitou e que
+    // ainda corresponde ao campo. Ao mudar de rota (ex.: abrir um produto), o
+    // listener reseta o input para o termo da nova URL, mas o valor debounced
+    // fica 300ms defasado. Sem esta guarda, esse valor velho dispararia um
+    // router.replace de volta para /products durante a ida ao detalhe.
+    if (debouncedQuery !== searchQuery) {
+      return
+    }
+
     if (trimmed === syncedSearchRef.current.trim()) {
       return
     }
@@ -180,7 +189,7 @@ export function Header() {
 
     syncedSearchRef.current = trimmed
     navigateToSearch(buildSearchHref(trimmed), 'replace')
-  }, [buildSearchHref, debouncedQuery, navigateToSearch, pathname])
+  }, [buildSearchHref, debouncedQuery, navigateToSearch, pathname, searchQuery])
 
   useEffect(() => {
     closeCatalogMenu()
