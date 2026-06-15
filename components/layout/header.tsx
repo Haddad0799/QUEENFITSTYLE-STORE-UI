@@ -59,6 +59,7 @@ export function Header() {
     useState<HeaderCatalogLoadState>('loading')
   const catalogAreaRef = useRef<HTMLDivElement>(null)
   const catalogCloseTimeoutRef = useRef<number | null>(null)
+  const searchInputRef = useRef<HTMLInputElement>(null)
   const cartBadgeLabel = !isHydrated
     ? '0'
     : totalItems > 99
@@ -191,6 +192,14 @@ export function Header() {
     closeCatalogMenu()
     setIsMobileMenuOpen(false)
   }, [pathname])
+
+  // Ao abrir o painel de busca, leva o foco direto para o campo — o painel fica
+  // sempre montado (apenas recolhido via CSS), então autoFocus não basta.
+  useEffect(() => {
+    if (isSearchOpen) {
+      searchInputRef.current?.focus()
+    }
+  }, [isSearchOpen])
 
   useEffect(() => {
     fetch('/api/categories')
@@ -519,12 +528,12 @@ export function Header() {
                   <Search className="h-4 w-4 text-muted-foreground" />
                 )}
                 <Input
+                  ref={searchInputRef}
                   type="search"
                   placeholder="Buscar por leggings, tops, conjuntos ou coleção"
                   value={searchQuery}
                   onChange={(event) => setSearchQuery(event.target.value)}
                   className="h-12 border-0 bg-transparent px-0 shadow-none focus-visible:ring-0"
-                  autoFocus
                 />
               </div>
               <Button
