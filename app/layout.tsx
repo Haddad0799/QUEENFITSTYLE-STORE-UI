@@ -5,7 +5,6 @@ import { Header } from '@/components/layout/header'
 import { Footer } from '@/components/layout/footer'
 import { NavigationLoadingProvider } from '@/components/navigation/navigation-loading-provider'
 import { CartProvider } from '@/src/context/CartProvider'
-import { CatalogRefresh } from '@/components/catalog/catalog-refresh'
 import './globals.css'
 
 const inter = Inter({ 
@@ -54,7 +53,6 @@ export default function RootLayout({
       <body className={`${inter.variable} ${playfair.variable} font-sans antialiased`}>
         <NavigationLoadingProvider>
           <CartProvider>
-            <CatalogRefresh />
             <div className="flex min-h-screen flex-col">
               <Header />
               <main className="flex-1">{children}</main>
